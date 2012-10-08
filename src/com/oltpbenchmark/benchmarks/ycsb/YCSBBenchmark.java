@@ -8,6 +8,8 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.configuration.XMLConfiguration;
+
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
@@ -20,7 +22,15 @@ public class YCSBBenchmark extends BenchmarkModule {
 
     public YCSBBenchmark(WorkloadConfiguration workConf) {
         super("ycsb", workConf, true);
+		XMLConfiguration xml = workConf.getXmlConfig();
+        if (xml != null) {
+            readUpdateZipfSigma = xml.getDouble("readUpdateZipfSigma");
+        } else {
+            readUpdateZipfSigma = 1.0;
+        }
     }
+    
+    private final double readUpdateZipfSigma;
 
     @Override
     protected List<Worker> makeWorkersImpl(boolean verbose) throws IOException {
@@ -46,7 +56,7 @@ public class YCSBBenchmark extends BenchmarkModule {
             for (int i = 0; i < workConf.getTerminals(); ++i) {
 //                Connection conn = this.makeConnection();
 //                conn.setAutoCommit(false);
-                workers.add(new YCSBWorker(i, this, init_record_count + 1));
+                workers.add(new YCSBWorker(i, this, init_record_count + 1, readUpdateZipfSigma));
             } // FOR
             metaConn.close();
         } catch (SQLException e) {

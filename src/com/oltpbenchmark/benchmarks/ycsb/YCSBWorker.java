@@ -29,9 +29,9 @@ public class YCSBWorker extends Worker {
 
     private final Map<Integer, String> m = new HashMap<Integer, String>();
     
-    public YCSBWorker(int id, BenchmarkModule benchmarkModule, int init_record_count) {
+    public YCSBWorker(int id, BenchmarkModule benchmarkModule, int init_record_count, double readUpdateZipfSigma) {
         super(benchmarkModule, id);
-        readRecord = new ZipfianGenerator(init_record_count);// pool for read keys
+        readRecord = new ZipfianGenerator(init_record_count, readUpdateZipfSigma);// pool for read keys
         randScan = new ZipfianGenerator(YCSBConstants.MAX_SCAN);
         
         synchronized (YCSBWorker.class) {
