@@ -10,7 +10,10 @@
     <isolation>TRANSACTION_SERIALIZABLE</isolation>
     
     <!-- Scalefactor in YCSB is *1000 the number of rows in the USERTABLE-->
-    <scalefactor>1200</scalefactor>
+    <scalefactor>20000</scalefactor>
+
+    <readUpdateAccessSkew>80</readUpdateAccessSkew>
+    <readUpdateDataSkew>20</readUpdateDataSkew>
     
     <!-- The workload -->
     <terminals>50</terminals>
@@ -18,7 +21,7 @@
         <work>
           <time>300</time>
           <rate>10000</rate>
-          <weights>50,50,0,0,0,0</weights>
+          <weights>80,0,0,20,0,0</weights>
         </work>
     </works>
 

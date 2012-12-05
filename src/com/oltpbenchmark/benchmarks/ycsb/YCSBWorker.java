@@ -17,21 +17,25 @@ import com.oltpbenchmark.benchmarks.ycsb.procedures.ReadRecord;
 import com.oltpbenchmark.benchmarks.ycsb.procedures.ScanRecord;
 import com.oltpbenchmark.benchmarks.ycsb.procedures.UpdateRecord;
 import com.oltpbenchmark.distributions.CounterGenerator;
+import com.oltpbenchmark.distributions.CustomSkewGenerator;
 import com.oltpbenchmark.distributions.ZipfianGenerator;
 import com.oltpbenchmark.types.TransactionStatus;
 import com.oltpbenchmark.util.TextGenerator;
 
 public class YCSBWorker extends Worker {
 
-    private ZipfianGenerator readRecord;
+    private CustomSkewGenerator readRecord;
     private static CounterGenerator insertRecord;
     private ZipfianGenerator randScan;
 
     private final Map<Integer, String> m = new HashMap<Integer, String>();
     
-    public YCSBWorker(int id, BenchmarkModule benchmarkModule, int init_record_count, double readUpdateZipfSigma) {
+    public YCSBWorker(int id, BenchmarkModule benchmarkModule, int init_record_count, 
+        double readUpdateAccessSkew, double readUpdateDataSkew) {
         super(benchmarkModule, id);
-        readRecord = new ZipfianGenerator(init_record_count, readUpdateZipfSigma);// pool for read keys
+        readRecord = new CustomSkewGenerator(init_record_count, 
+            (int) readUpdateAccessSkew, (int) readUpdateDataSkew); // pool for read keys
+        // XXX: fixme later
         randScan = new ZipfianGenerator(YCSBConstants.MAX_SCAN);
         
         synchronized (YCSBWorker.class) {

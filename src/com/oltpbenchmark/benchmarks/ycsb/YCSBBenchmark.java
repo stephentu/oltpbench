@@ -22,15 +22,19 @@ public class YCSBBenchmark extends BenchmarkModule {
 
     public YCSBBenchmark(WorkloadConfiguration workConf) {
         super("ycsb", workConf, true);
-		XMLConfiguration xml = workConf.getXmlConfig();
+        XMLConfiguration xml = workConf.getXmlConfig();
         if (xml != null) {
-            readUpdateZipfSigma = xml.getDouble("readUpdateZipfSigma");
+            readUpdateAccessSkew = xml.getDouble("readUpdateAccessSkew");
+            readUpdateDataSkew = xml.getDouble("readUpdateDataSkew");
         } else {
-            readUpdateZipfSigma = 1.0;
+            readUpdateAccessSkew = 80.0;
+            readUpdateDataSkew = 20.0;
         }
     }
     
-    private final double readUpdateZipfSigma;
+    // percentages
+    private final double readUpdateAccessSkew;
+    private final double readUpdateDataSkew;
 
     @Override
     protected List<Worker> makeWorkersImpl(boolean verbose) throws IOException {
@@ -56,7 +60,8 @@ public class YCSBBenchmark extends BenchmarkModule {
             for (int i = 0; i < workConf.getTerminals(); ++i) {
 //                Connection conn = this.makeConnection();
 //                conn.setAutoCommit(false);
-                workers.add(new YCSBWorker(i, this, init_record_count + 1, readUpdateZipfSigma));
+                workers.add(new YCSBWorker(i, this, init_record_count + 1, 
+                      readUpdateAccessSkew, readUpdateDataSkew));
             } // FOR
             metaConn.close();
         } catch (SQLException e) {
