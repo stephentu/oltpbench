@@ -10,4 +10,5 @@ public abstract class YCSBConstants {
 
     static final int MAX_SCAN=1000;
 
+    public static final int MC_KEY_TIMEOUT = 60*60*24*30;
 }

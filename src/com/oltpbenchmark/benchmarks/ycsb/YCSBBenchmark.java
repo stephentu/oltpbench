@@ -6,7 +6,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import net.minidev.json.JSONArray;
+import net.minidev.json.JSONStyle;
+import net.minidev.json.JSONValue;
 
 import org.apache.commons.configuration.XMLConfiguration;
 
@@ -20,6 +26,29 @@ import com.oltpbenchmark.util.SQLUtil;
 
 public class YCSBBenchmark extends BenchmarkModule {
 
+    public static String MCKey(int ycsb_key) {
+        return "ycsb:ycsb_key:" + ycsb_key;
+    }
+    
+    public static Map<Integer, String> YCSBRecFromJson(String s) {
+        Map<Integer, String> ret = new HashMap<Integer, String>();
+        YCSBRecFromJson(s, ret);
+        return ret;
+    }
+    
+    public static void YCSBRecFromJson(String s, Map<Integer, String> rec) {
+        JSONArray a = (JSONArray) JSONValue.parse(s);
+        for (int i = 1; i <= 11; i++)
+            rec.put(i, (String) a.get(i - 1));   
+    }
+    
+    public static String YCSBRecToJson(Map<Integer, String> rec) {
+        JSONArray a = new JSONArray();
+        for (int i = 1; i <= 11; i++)
+            a.add((String) rec.get(i));
+        return a.toJSONString(JSONStyle.MAX_COMPRESS);
+    }
+    
     public YCSBBenchmark(WorkloadConfiguration workConf) {
         super("ycsb", workConf, true);
         XMLConfiguration xml = workConf.getXmlConfig();

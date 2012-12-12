@@ -72,7 +72,7 @@ public class YCSBWorker extends Worker {
         assert (proc != null);
         int keyname = readRecord.nextInt();
         Map<Integer, String> values = buildValues(10);
-        proc.run(conn, keyname, values);
+        proc.run(conn, mcclient, keyname, values);
     }
 
     private void scanRecord() throws SQLException {
@@ -87,7 +87,7 @@ public class YCSBWorker extends Worker {
         ReadRecord proc = this.getProcedure(ReadRecord.class);
         assert (proc != null);
         int keyname = readRecord.nextInt();
-        proc.run(conn, keyname, new HashMap<Integer, String>());
+        proc.run(conn, mcclient, keyname, new HashMap<Integer, String>());
     }
 
     private void readModifyWriteRecord() throws SQLException {

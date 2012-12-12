@@ -6,8 +6,11 @@ import java.sql.SQLException;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import net.spy.memcached.MemcachedClient;
+
 import com.oltpbenchmark.api.Procedure;
 import com.oltpbenchmark.api.SQLStmt;
+import com.oltpbenchmark.benchmarks.ycsb.YCSBBenchmark;
 
 public class UpdateRecord extends Procedure {
     
@@ -16,7 +19,12 @@ public class UpdateRecord extends Procedure {
         "FIELD6=?,FIELD7=?,FIELD8=?,FIELD9=?,FIELD10=? WHERE YCSB_KEY=?"
     );
     
-    public void run(Connection conn, int keyname, Map<Integer,String> vals) throws SQLException {
+    public void run(Connection conn, MemcachedClient mcclient, int keyname, Map<Integer,String> vals) throws SQLException {
+        if (mcclient != null) {
+            // do mc invalidation
+            mcclient.delete(YCSBBenchmark.MCKey(keyname));
+        }
+        
     	PreparedStatement stmt = this.getPreparedStatement(conn, updateAllStmt);
 		assert(vals.size()==10);       
 		stmt.setInt(11,keyname); 
