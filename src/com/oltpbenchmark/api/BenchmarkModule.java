@@ -146,6 +146,23 @@ public abstract class BenchmarkModule {
         return last_mcclient;
     }
 
+    // have all workers share the same underlying MC connection, which
+    // is thread-safe
+    protected final MemcachedClient getSharedMCClient() throws IOException {
+      synchronized (this) {
+        if (this.last_mcclient == null)
+          this.last_mcclient = makeMCClient();
+        return this.last_mcclient;
+      }
+    }
+
+    public final void shutdown() {
+      if (this.last_mcclient != null) {
+        this.last_mcclient.shutdown();
+        this.last_mcclient = null;
+      }
+    }
+
     // --------------------------------------------------------------------------
     // IMPLEMENTING CLASS INTERFACE
     // --------------------------------------------------------------------------

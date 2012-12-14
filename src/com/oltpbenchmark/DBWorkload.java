@@ -300,6 +300,9 @@ public class DBWorkload {
             }
             assert(r != null);
 
+            // proper shutdown
+            bench.shutdown();
+
             PrintStream ps = System.out;
             PrintStream rs = System.out;
             if (argsLine.hasOption("o")) {
