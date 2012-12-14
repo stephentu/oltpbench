@@ -51,8 +51,8 @@ public class CustomSkewThreeLevelGenerator extends IntegerGenerator
 		hot_data_access_skew = _hot_data_access_skew; 
 		warm_data_access_skew = _warm_data_access_skew; 
 
-		hot_data_size = (int)(max * ((double)_hot_data_pct / 100.0));
-		warm_data_size = (int)(max * ((double)_warm_data_pct / 100.0));
+		hot_data_size = (int)(((double)_max) * ((double)_hot_data_pct / 100.0));
+		warm_data_size = (int)(((double)_max) * ((double)_warm_data_pct / 100.0));
 		
 		max = _max;  
 		

@@ -112,8 +112,11 @@ public class YCSBBenchmark extends BenchmarkModule {
 
             if (memcachedWarmup > 0) {
                 YCSBWorker w = (YCSBWorker) workers.get(0);
+                Map<Integer, String> rec = w.readRecord(0); 
                 for (int i = 0; i < Math.min(memcachedWarmup, init_record_count); i++) {
-                    w.readRecord(i); // side effect of loading into MC+DB
+                    w.putInMC(i, rec);
+                    //if (((i+1) % 10000) == 0)
+                    //  System.out.println("i elems: " + (i+1));
                 }
             }
 

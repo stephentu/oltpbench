@@ -90,10 +90,21 @@ public class YCSBWorker extends Worker {
         proc.run(conn, keyname, count, new ArrayList<Map<Integer, String>>());
     }
 
-    public void readRecord(int keyname) throws SQLException {
+    public Map<Integer, String> readRecord(int keyname) throws SQLException {
         ReadRecord proc = this.getProcedure(ReadRecord.class);
         assert (proc != null);
-        proc.run(conn, mcclient, keyname, new HashMap<Integer, String>());
+        Map<Integer, String> ret = new HashMap<Integer, String>();
+        proc.run(conn, mcclient, keyname, ret);
+        return ret;
+    }
+
+    public void putInMC(int keyname, Map<Integer, String> m) {
+        try { 
+            mcclient.set(YCSBBenchmark.MCKey(keyname), YCSBConstants.MC_KEY_TIMEOUT, YCSBBenchmark.YCSBRecToJson(m));
+        } catch (IllegalStateException e) {
+            // queue is too full
+            throw e;
+        }
     }
 
     private void readRecord() throws SQLException {
