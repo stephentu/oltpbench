@@ -17,24 +17,31 @@ import com.oltpbenchmark.benchmarks.ycsb.procedures.ReadRecord;
 import com.oltpbenchmark.benchmarks.ycsb.procedures.ScanRecord;
 import com.oltpbenchmark.benchmarks.ycsb.procedures.UpdateRecord;
 import com.oltpbenchmark.distributions.CounterGenerator;
-import com.oltpbenchmark.distributions.CustomSkewGenerator;
+import com.oltpbenchmark.distributions.CustomSkewThreeLevelGenerator;
 import com.oltpbenchmark.distributions.ZipfianGenerator;
 import com.oltpbenchmark.types.TransactionStatus;
 import com.oltpbenchmark.util.TextGenerator;
 
 public class YCSBWorker extends Worker {
 
-    private CustomSkewGenerator readRecord;
+    private CustomSkewThreeLevelGenerator readRecord;
     private static CounterGenerator insertRecord;
     private ZipfianGenerator randScan;
 
     private final Map<Integer, String> m = new HashMap<Integer, String>();
     
     public YCSBWorker(int id, BenchmarkModule benchmarkModule, int init_record_count, 
-        double readUpdateAccessSkew, double readUpdateDataSkew) {
+        double readUpdateHotAccessSkew, 
+        double readUpdateHotDataSkew,
+        double readUpdateWarmAccessSkew, 
+        double readUpdateWarmDataSkew) {
         super(benchmarkModule, id);
-        readRecord = new CustomSkewGenerator(init_record_count, 
-            (int) readUpdateAccessSkew, (int) readUpdateDataSkew); // pool for read keys
+        readRecord = new CustomSkewThreeLevelGenerator(init_record_count, 
+            (int) readUpdateHotAccessSkew, 
+            (int) readUpdateHotDataSkew,
+            (int) readUpdateWarmAccessSkew, 
+            (int) readUpdateWarmDataSkew); // pool for read keys
+
         // XXX: fixme later
         randScan = new ZipfianGenerator(YCSBConstants.MAX_SCAN);
         
@@ -81,6 +88,12 @@ public class YCSBWorker extends Worker {
         int keyname = readRecord.nextInt();
         int count = randScan.nextInt();
         proc.run(conn, keyname, count, new ArrayList<Map<Integer, String>>());
+    }
+
+    public void readRecord(int keyname) throws SQLException {
+        ReadRecord proc = this.getProcedure(ReadRecord.class);
+        assert (proc != null);
+        proc.run(conn, mcclient, keyname, new HashMap<Integer, String>());
     }
 
     private void readRecord() throws SQLException {

@@ -38,32 +38,46 @@ public class YCSBBenchmark extends BenchmarkModule {
     
     public static void YCSBRecFromJson(String s, Map<Integer, String> rec) {
         JSONArray a = (JSONArray) JSONValue.parse(s);
-        for (int i = 1; i <= 11; i++)
-            rec.put(i, (String) a.get(i - 1));   
+        if (a == null)
+            throw new RuntimeException("bad json: " + s);
+        for (int i = 1; i < 11; i++) {
+            Object o = a.get(i - 1);
+            rec.put(i, o.toString());
+        }
     }
     
     public static String YCSBRecToJson(Map<Integer, String> rec) {
         JSONArray a = new JSONArray();
-        for (int i = 1; i <= 11; i++)
+        for (int i = 1; i < 11; i++)
             a.add((String) rec.get(i));
-        return a.toJSONString(JSONStyle.MAX_COMPRESS);
+        return a.toJSONString();
     }
     
     public YCSBBenchmark(WorkloadConfiguration workConf) {
         super("ycsb", workConf, true);
         XMLConfiguration xml = workConf.getXmlConfig();
         if (xml != null) {
-            readUpdateAccessSkew = xml.getDouble("readUpdateAccessSkew");
-            readUpdateDataSkew = xml.getDouble("readUpdateDataSkew");
+            readUpdateHotAccessSkew = xml.getDouble("readUpdateHotAccessSkew");
+            readUpdateHotDataSkew = xml.getDouble("readUpdateHotDataSkew");
+            readUpdateWarmAccessSkew = xml.getDouble("readUpdateWarmAccessSkew");
+            readUpdateWarmDataSkew = xml.getDouble("readUpdateWarmDataSkew");
+            memcachedWarmup = xml.getInt("memcachedWarmup");
         } else {
-            readUpdateAccessSkew = 80.0;
-            readUpdateDataSkew = 20.0;
+            readUpdateHotAccessSkew = 80.0;
+            readUpdateHotDataSkew = 20.0;
+            readUpdateWarmAccessSkew = 10.0;
+            readUpdateWarmDataSkew = 10.0;
+            memcachedWarmup = 1000;
         }
     }
     
     // percentages
-    private final double readUpdateAccessSkew;
-    private final double readUpdateDataSkew;
+    private final double readUpdateHotAccessSkew;
+    private final double readUpdateHotDataSkew;
+    private final double readUpdateWarmAccessSkew;
+    private final double readUpdateWarmDataSkew;
+    
+    private final int memcachedWarmup;
 
     @Override
     protected List<Worker> makeWorkersImpl(boolean verbose) throws IOException {
@@ -85,13 +99,24 @@ public class YCSBBenchmark extends BenchmarkModule {
             }
             assert init_record_count > 0;
             res.close();
-            //
+
             for (int i = 0; i < workConf.getTerminals(); ++i) {
 //                Connection conn = this.makeConnection();
 //                conn.setAutoCommit(false);
                 workers.add(new YCSBWorker(i, this, init_record_count + 1, 
-                      readUpdateAccessSkew, readUpdateDataSkew));
+                      readUpdateHotAccessSkew, 
+                      readUpdateHotDataSkew,
+                      readUpdateWarmAccessSkew, 
+                      readUpdateWarmDataSkew));
             } // FOR
+
+            if (memcachedWarmup > 0) {
+                YCSBWorker w = (YCSBWorker) workers.get(0);
+                for (int i = 0; i < Math.min(memcachedWarmup, init_record_count); i++) {
+                    w.readRecord(i); // side effect of loading into MC+DB
+                }
+            }
+
             metaConn.close();
         } catch (SQLException e) {
             // TODO Auto-generated catch block
