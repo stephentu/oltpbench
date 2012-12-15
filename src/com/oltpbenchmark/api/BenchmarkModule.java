@@ -27,6 +27,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -82,6 +83,8 @@ public abstract class BenchmarkModule {
      * The last memcached connection that was created using this Benchmark Module
      */
     private MemcachedClient last_mcclient;
+
+    private List<MemcachedClient> mcclients = new ArrayList<MemcachedClient>();
     
     /**
      * A single Random object that should be re-used by all a benchmark's components
@@ -138,7 +141,10 @@ public abstract class BenchmarkModule {
         int port = workConf.getMCPort() == -1 ? 11211 : workConf.getMCPort();
         
         MemcachedClient c = new MemcachedClient(new InetSocketAddress(hostname, port));
-        this.last_mcclient = c;
+        synchronized (this) {
+          this.mcclients.add(c);
+          this.last_mcclient = c;
+        }
         return c;
     }
     
@@ -146,21 +152,12 @@ public abstract class BenchmarkModule {
         return last_mcclient;
     }
 
-    // have all workers share the same underlying MC connection, which
-    // is thread-safe
-    protected final MemcachedClient getSharedMCClient() throws IOException {
-      synchronized (this) {
-        if (this.last_mcclient == null)
-          this.last_mcclient = makeMCClient();
-        return this.last_mcclient;
-      }
-    }
-
     public final void shutdown() {
-      if (this.last_mcclient != null) {
-        this.last_mcclient.shutdown();
-        this.last_mcclient = null;
+      for (MemcachedClient c : mcclients) {
+        c.shutdown();
       }
+      mcclients.clear();
+      this.last_mcclient = null;
     }
 
     // --------------------------------------------------------------------------

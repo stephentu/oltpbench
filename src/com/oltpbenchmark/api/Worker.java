@@ -66,7 +66,7 @@ public abstract class Worker implements Runnable {
 		}
 		
 		try {
-		    this.mcclient = this.benchmarkModule.getSharedMCClient();
+		    this.mcclient = this.benchmarkModule.makeMCClient();
 		} catch (IOException ex) {
 		    LOG.warn("Could not connect to memcached instance: " + ex.getMessage());
 		    this.mcclient = null;
