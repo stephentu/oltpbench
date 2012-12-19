@@ -58,73 +58,80 @@ public class Payment extends Procedure {
 	private PreparedStatement payInsertHist = null;
 	private PreparedStatement customerByName = null;
 	
-	
-	
-	 public ResultSet run(Connection conn, Random gen,
-				int terminalWarehouseID, int numWarehouses,
-				int terminalDistrictLowerID, int terminalDistrictUpperID,
-				TPCCWorker w) throws SQLException{
-	
-		 
-			//initializing all prepared statements
-			payUpdateWhse=this.getPreparedStatement(conn, payUpdateWhseSQL);
-			payGetWhse=this.getPreparedStatement(conn, payGetWhseSQL);
-			payUpdateDist=this.getPreparedStatement(conn, payUpdateDistSQL);
-			payGetDist =this.getPreparedStatement(conn, payGetDistSQL);
-			payGetCust =this.getPreparedStatement(conn, payGetCustSQL);
-			payGetCustCdata =this.getPreparedStatement(conn, payGetCustCdataSQL);
-			payUpdateCustBalCdata =this.getPreparedStatement(conn, payUpdateCustBalCdataSQL);
-			payUpdateCustBal =this.getPreparedStatement(conn, payUpdateCustBalSQL);
-			payInsertHist =this.getPreparedStatement(conn, payInsertHistSQL);
-			customerByName=this.getPreparedStatement(conn, customerByNameSQL);
-		 
-		 
-		    // payUpdateWhse =this.getPreparedStatement(conn, payUpdateWhseSQL);
-		 
-		 
-            int districtID = TPCCUtil.randomNumber(terminalDistrictLowerID,terminalDistrictUpperID, gen);
-        	int customerID = TPCCUtil.getCustomerID(gen);
-        
-        	int x = TPCCUtil.randomNumber(1, 100, gen);
-        	int customerDistrictID;
-        	int customerWarehouseID;
-        	if (x <= 85) {
-        		customerDistrictID = districtID;
-        		customerWarehouseID = terminalWarehouseID;
-        	} else {
-        		customerDistrictID = TPCCUtil.randomNumber(1,
-        				jTPCCConfig.configDistPerWhse, gen);
-        		do {
-        			customerWarehouseID = TPCCUtil.randomNumber(1,
-        					numWarehouses, gen);
-        		} while (customerWarehouseID == terminalWarehouseID
-        				&& numWarehouses > 1);
-        	}
-        
-        	long y = TPCCUtil.randomNumber(1, 100, gen);
-        	boolean customerByName;
-        	String customerLastName = null;
-        	customerID = -1;
-        	if (y <= 60) {
-        		// 60% lookups by last name
-        		customerByName = true;
-        		customerLastName = TPCCUtil
-        				.getNonUniformRandomLastNameForRun(gen);
-        	} else {
-        		// 40% lookups by customer ID
-        		customerByName = false;
-        		customerID = TPCCUtil.getCustomerID(gen);
-        	}
-        
-        	float paymentAmount = (float) (TPCCUtil.randomNumber(100, 500000, gen) / 100.0);
+  public ResultSet run(Connection conn, Random gen,
+      int terminalWarehouseID, int numWarehouses,
+      int terminalDistrictLowerID, int terminalDistrictUpperID,
+      TPCCWorker w) throws SQLException {
 
-			paymentTransaction(terminalWarehouseID,
-					customerWarehouseID, paymentAmount, districtID,
-					customerDistrictID, customerID,
-					customerLastName, customerByName, conn, w);
 
-			return null;
-	}
+     //initializing all prepared statements
+     payUpdateWhse=this.getPreparedStatement(conn, payUpdateWhseSQL);
+     payGetWhse=this.getPreparedStatement(conn, payGetWhseSQL);
+     payUpdateDist=this.getPreparedStatement(conn, payUpdateDistSQL);
+     payGetDist =this.getPreparedStatement(conn, payGetDistSQL);
+     payGetCust =this.getPreparedStatement(conn, payGetCustSQL);
+     payGetCustCdata =this.getPreparedStatement(conn, payGetCustCdataSQL);
+     payUpdateCustBalCdata =this.getPreparedStatement(conn, payUpdateCustBalCdataSQL);
+     payUpdateCustBal =this.getPreparedStatement(conn, payUpdateCustBalSQL);
+     payInsertHist =this.getPreparedStatement(conn, payInsertHistSQL);
+     customerByName=this.getPreparedStatement(conn, customerByNameSQL);
+
+
+     // payUpdateWhse =this.getPreparedStatement(conn, payUpdateWhseSQL);
+
+     int districtID;
+     if (w.getSkewGen() != null) {
+       int v = w.getSkewGen().nextInt();
+       terminalWarehouseID = v / jTPCCConfig.configDistPerWhse;
+       districtID = v % jTPCCConfig.configDistPerWhse;
+       
+       // note: terminal/district are 1-indexed
+       terminalWarehouseID++; districtID++;
+     } else {
+       districtID = TPCCUtil.randomNumber(terminalDistrictLowerID,terminalDistrictUpperID, gen);
+     }
+     
+     int customerID = -1; 
+
+     int x = TPCCUtil.randomNumber(1, 100, gen);
+     int customerDistrictID;
+     int customerWarehouseID;
+     if (x <= 85) {
+       customerDistrictID = districtID;
+       customerWarehouseID = terminalWarehouseID;
+     } else {
+       customerDistrictID = TPCCUtil.randomNumber(1,
+           jTPCCConfig.configDistPerWhse, gen);
+       do {
+         customerWarehouseID = TPCCUtil.randomNumber(1,
+             numWarehouses, gen);
+       } while (customerWarehouseID == terminalWarehouseID
+           && numWarehouses > 1);
+     }
+
+     long y = TPCCUtil.randomNumber(1, 100, gen);
+     boolean customerByName;
+     String customerLastName = null;
+     if (y <= 60) {
+       // 60% lookups by last name
+       customerByName = true;
+       customerLastName = TPCCUtil
+         .getNonUniformRandomLastNameForRun(gen);
+     } else {
+       // 40% lookups by customer ID
+       customerByName = false;
+       customerID = TPCCUtil.getCustomerID(gen);
+     }
+
+     float paymentAmount = (float) (TPCCUtil.randomNumber(100, 500000, gen) / 100.0);
+
+     paymentTransaction(terminalWarehouseID,
+         customerWarehouseID, paymentAmount, districtID,
+         customerDistrictID, customerID,
+         customerLastName, customerByName, conn, w);
+
+     return null;
+   }
 	 
     private void paymentTransaction(int w_id, int c_w_id, float h_amount,
 				int d_id, int c_d_id, int c_id, String c_last, boolean c_by_name, Connection conn, TPCCWorker w)

@@ -41,6 +41,7 @@ public class CustomSkewThreeLevelGenerator extends IntegerGenerator
 	int hot_data_max; 	// integers in the range 0 < x < hot_data_max will represent the "hot" numbers getting hot_data_access_skew% of the accesses 
 	int warm_data_max;  // integers in the range hot_data_max < x < warm_data_max will represent the "warm" numbers
 	
+  // generates #s from [0, _max)
 	public CustomSkewThreeLevelGenerator(int _max, int _hot_data_access_skew, int _hot_data_pct, int _warm_data_access_skew, int _warm_data_pct)
 	{
 		assert(_hot_data_access_skew + _warm_data_access_skew <= 100) : "Workload skew cannot be more than 100%."; 
@@ -65,17 +66,17 @@ public class CustomSkewThreeLevelGenerator extends IntegerGenerator
 		int key = 0; 
 		int access_skew_rand = rand.nextInt(100); 
 		
-		if(access_skew_rand < hot_data_access_skew)  // generate a number in the "hot" data range, 0 < x < hot_data_max
+		if(access_skew_rand < hot_data_access_skew)  // generate a number in the "hot" data range, 0 <= x < hot_data_max
 		{
 			key = rand.nextInt(hot_data_max); 
 		}
-		else if(access_skew_rand < hot_data_access_skew + warm_data_access_skew) // generate a key in the "warm" data range, hot_data_max < x < warm_data_max
+		else if(access_skew_rand < (hot_data_access_skew + warm_data_access_skew)) // generate a key in the "warm" data range, hot_data_max <= x < warm_data_max
 		{
-			key = rand.nextInt(warm_data_max - hot_data_max + 1) + hot_data_max; 
+			key = rand.nextInt(warm_data_max - hot_data_max) + hot_data_max; 
 		}
-		else  // generate a number in the "cold" data range, warm_data_max < x < max
+		else  // generate a number in the "cold" data range, warm_data_max <= x < max
 		{
-			key = rand.nextInt(max - warm_data_max + 1) + warm_data_max; 
+			key = rand.nextInt(max - warm_data_max) + warm_data_max; 
 		}
 		
 		return key; 

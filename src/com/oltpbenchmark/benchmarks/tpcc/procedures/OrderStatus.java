@@ -14,6 +14,7 @@ import com.oltpbenchmark.api.Procedure;
 import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCUtil;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCWorker;
+import com.oltpbenchmark.benchmarks.tpcc.jTPCCConfig;
 import com.oltpbenchmark.benchmarks.tpcc.pojo.Customer;
 import com.oltpbenchmark.benchmarks.twitter.procedures.GetFollowers;
 
@@ -60,7 +61,18 @@ public class OrderStatus extends Procedure {
 			ordStatGetNewestOrd =this.getPreparedStatement(conn, ordStatGetNewestOrdSQL);
 			ordStatGetOrderLines=this.getPreparedStatement(conn, ordStatGetOrderLinesSQL);
 				
-			int districtID = TPCCUtil.randomNumber(terminalDistrictLowerID,terminalDistrictUpperID, gen);
+     int districtID;
+     if (w.getSkewGen() != null) {
+       int v = w.getSkewGen().nextInt();
+       terminalWarehouseID = v / jTPCCConfig.configDistPerWhse;
+       districtID = v % jTPCCConfig.configDistPerWhse;
+       
+       // note: terminal/district are 1-indexed
+       terminalWarehouseID++; districtID++;
+     } else {
+       districtID = TPCCUtil.randomNumber(terminalDistrictLowerID,terminalDistrictUpperID, gen);
+     }
+
 			boolean isCustomerByName=false;
 			int y = TPCCUtil.randomNumber(1, 100, gen);
 			String customerLastName = null;

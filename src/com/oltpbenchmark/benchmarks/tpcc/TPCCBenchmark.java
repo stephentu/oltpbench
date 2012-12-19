@@ -29,6 +29,7 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 
+import org.apache.commons.configuration.XMLConfiguration;
 
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
@@ -40,8 +41,36 @@ import com.oltpbenchmark.util.SimpleSystemPrinter;
 public class TPCCBenchmark extends BenchmarkModule {
     private static final Logger LOG = Logger.getLogger(TPCCBenchmark.class);
 
+  public static class SkewDesc {
+    public final double hotAccessSkew;
+    public final double hotDataSkew;
+    public final double warmAccessSkew;
+    public final double warmDataSkew;
+    public SkewDesc(double hotAccessSkew,
+                    double hotDataSkew,
+                    double warmAccessSkew,
+                    double warmDataSkew) {
+      this.hotAccessSkew = hotAccessSkew;
+      this.hotDataSkew = hotDataSkew;
+      this.warmAccessSkew = warmAccessSkew;
+      this.warmDataSkew = warmDataSkew;
+    }
+  }
+
+  private final SkewDesc skewDesc;
+  
 	public TPCCBenchmark(WorkloadConfiguration workConf) {
 		super("tpcc", workConf, true);
+      XMLConfiguration xml = workConf.getXmlConfig();
+      if (xml != null && xml.getBoolean("useSkew")) {
+        skewDesc = new SkewDesc(
+          xml.getDouble("hotAccessSkew"),
+          xml.getDouble("hotDataSkew"),
+          xml.getDouble("warmAccessSkew"),
+          xml.getDouble("warmDataSkew"));
+      } else {
+        skewDesc = null;
+      }
 	}
 
 	@Override
@@ -127,7 +156,7 @@ public class TPCCBenchmark extends BenchmarkModule {
 				TPCCWorker terminal = new TPCCWorker(terminalName, w_id,
 						lowerDistrictId, upperDistrictId, this,
 						new SimpleSystemPrinter(null), new SimpleSystemPrinter(
-								System.err), numWarehouses);
+								System.err), numWarehouses, skewDesc);
 				terminals[lowerTerminalId + terminalId] = terminal;
 				terminalNames[lowerTerminalId + terminalId] = terminalName;
 			}

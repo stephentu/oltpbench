@@ -57,10 +57,10 @@ public class YCSBBenchmark extends BenchmarkModule {
         super("ycsb", workConf, true);
         XMLConfiguration xml = workConf.getXmlConfig();
         if (xml != null) {
-            readUpdateHotAccessSkew = xml.getDouble("readUpdateHotAccessSkew");
-            readUpdateHotDataSkew = xml.getDouble("readUpdateHotDataSkew");
-            readUpdateWarmAccessSkew = xml.getDouble("readUpdateWarmAccessSkew");
-            readUpdateWarmDataSkew = xml.getDouble("readUpdateWarmDataSkew");
+            readUpdateHotAccessSkew = xml.getDouble("hotAccessSkew");
+            readUpdateHotDataSkew = xml.getDouble("hotDataSkew");
+            readUpdateWarmAccessSkew = xml.getDouble("warmAccessSkew");
+            readUpdateWarmDataSkew = xml.getDouble("warmDataSkew");
             memcachedWarmup = xml.getInt("memcachedWarmup");
         } else {
             readUpdateHotAccessSkew = 80.0;

@@ -63,63 +63,69 @@ public class NewOrder extends Procedure {
 	private PreparedStatement stmtInsertOrderLine = null;
 	
     
-    public ResultSet run(Connection conn, Random gen,
-			int terminalWarehouseID, int numWarehouses,
-			int terminalDistrictLowerID, int terminalDistrictUpperID,
-			TPCCWorker w) throws SQLException {
-    
-    	
-		
-		//initializing all prepared statements
-		stmtGetCustWhse=this.getPreparedStatement(conn, stmtGetCustWhseSQL);
-		stmtGetDist=this.getPreparedStatement(conn, stmtGetDistSQL);
-		stmtInsertNewOrder=this.getPreparedStatement(conn, stmtInsertNewOrderSQL);
-		stmtUpdateDist =this.getPreparedStatement(conn, stmtUpdateDistSQL);
-		stmtInsertOOrder =this.getPreparedStatement(conn, stmtInsertOOrderSQL);
-		stmtGetItem =this.getPreparedStatement(conn, stmtGetItemSQL);
-		stmtGetStock =this.getPreparedStatement(conn, stmtGetStockSQL);
-		stmtUpdateStock =this.getPreparedStatement(conn, stmtUpdateStockSQL);
-		stmtInsertOrderLine =this.getPreparedStatement(conn, stmtInsertOrderLineSQL);
-    	
-    	
-		int districtID = TPCCUtil.randomNumber(terminalDistrictLowerID,terminalDistrictUpperID, gen);
-		int customerID = TPCCUtil.getCustomerID(gen);
+  public ResultSet run(Connection conn, Random gen,
+      int terminalWarehouseID, int numWarehouses,
+      int terminalDistrictLowerID, int terminalDistrictUpperID,
+      TPCCWorker w) throws SQLException {
 
-		int numItems = (int) TPCCUtil.randomNumber(5, 15, gen);
-		int[] itemIDs = new int[numItems];
-		int[] supplierWarehouseIDs = new int[numItems];
-		int[] orderQuantities = new int[numItems];
-		int allLocal = 1;
-		for (int i = 0; i < numItems; i++) {
-			itemIDs[i] = TPCCUtil.getItemID(gen);
-			if (TPCCUtil.randomNumber(1, 100, gen) > 1) {
-				supplierWarehouseIDs[i] = terminalWarehouseID;
-			} else {
-				do {
-					supplierWarehouseIDs[i] = TPCCUtil.randomNumber(1,
-							numWarehouses, gen);
-				} while (supplierWarehouseIDs[i] == terminalWarehouseID
-						&& numWarehouses > 1);
-				allLocal = 0;
-			}
-			orderQuantities[i] = TPCCUtil.randomNumber(1, 10, gen);
-		}
+    //initializing all prepared statements
+    stmtGetCustWhse=this.getPreparedStatement(conn, stmtGetCustWhseSQL);
+    stmtGetDist=this.getPreparedStatement(conn, stmtGetDistSQL);
+    stmtInsertNewOrder=this.getPreparedStatement(conn, stmtInsertNewOrderSQL);
+    stmtUpdateDist =this.getPreparedStatement(conn, stmtUpdateDistSQL);
+    stmtInsertOOrder =this.getPreparedStatement(conn, stmtInsertOOrderSQL);
+    stmtGetItem =this.getPreparedStatement(conn, stmtGetItemSQL);
+    stmtGetStock =this.getPreparedStatement(conn, stmtGetStockSQL);
+    stmtUpdateStock =this.getPreparedStatement(conn, stmtUpdateStockSQL);
+    stmtInsertOrderLine =this.getPreparedStatement(conn, stmtInsertOrderLineSQL);
 
-		// we need to cause 1% of the new orders to be rolled back.
-		if (TPCCUtil.randomNumber(1, 100, gen) == 1)
-			itemIDs[numItems - 1] = jTPCCConfig.INVALID_ITEM_ID;
+    int districtID;
+    if (w.getSkewGen() != null) {
+      int v = w.getSkewGen().nextInt();
 
-		
-		newOrderTransaction(terminalWarehouseID, districtID,
-						customerID, numItems, allLocal, itemIDs,
-						supplierWarehouseIDs, orderQuantities, conn, w);
-		return null;
-    
+      terminalWarehouseID = v / jTPCCConfig.configDistPerWhse;
+      districtID = v % jTPCCConfig.configDistPerWhse;
+
+      // note: terminal/district are 1-indexed
+      terminalWarehouseID++; districtID++;
+    } else {
+      districtID = TPCCUtil.randomNumber(terminalDistrictLowerID,terminalDistrictUpperID, gen);
     }
-    
+
+    int customerID = TPCCUtil.getCustomerID(gen);
+
+    int numItems = (int) TPCCUtil.randomNumber(5, 15, gen);
+    int[] itemIDs = new int[numItems];
+    int[] supplierWarehouseIDs = new int[numItems];
+    int[] orderQuantities = new int[numItems];
+    int allLocal = 1;
+    for (int i = 0; i < numItems; i++) {
+      itemIDs[i] = TPCCUtil.getItemID(gen);
+      if (TPCCUtil.randomNumber(1, 100, gen) > 1) {
+        supplierWarehouseIDs[i] = terminalWarehouseID;
+      } else {
+        do {
+          supplierWarehouseIDs[i] = TPCCUtil.randomNumber(1,
+              numWarehouses, gen);
+        } while (supplierWarehouseIDs[i] == terminalWarehouseID
+            && numWarehouses > 1);
+        allLocal = 0;
+      }
+      orderQuantities[i] = TPCCUtil.randomNumber(1, 10, gen);
+    }
+
+    // we need to cause 1% of the new orders to be rolled back.
+    if (TPCCUtil.randomNumber(1, 100, gen) == 1)
+      itemIDs[numItems - 1] = jTPCCConfig.INVALID_ITEM_ID;
+
+
+    newOrderTransaction(terminalWarehouseID, districtID,
+        customerID, numItems, allLocal, itemIDs,
+        supplierWarehouseIDs, orderQuantities, conn, w);
+    return null;
+
+  }
 	
-
-
 	private void newOrderTransaction(int w_id, int d_id, int c_id,
 			int o_ol_cnt, int o_all_local, int[] itemIDs,
 			int[] supplierWarehouseIDs, int[] orderQuantities, Connection conn, TPCCWorker w)
