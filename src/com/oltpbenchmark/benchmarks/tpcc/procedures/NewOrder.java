@@ -5,6 +5,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 
 import org.apache.log4j.Logger;
@@ -61,7 +64,36 @@ public class NewOrder extends Procedure {
 	private PreparedStatement stmtGetStock = null;
 	private PreparedStatement stmtUpdateStock = null;
 	private PreparedStatement stmtInsertOrderLine = null;
-	
+
+  private static class Pair<A extends Comparable<A>, B extends Comparable<B>> implements Comparable<Pair<A, B>> {
+    public final A a;
+    public final B b;
+
+    public Pair(A a, B b) {
+      this.a = a;
+      this.b = b;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == null)
+        return false;
+      if (!(o instanceof Pair<?, ?>))
+        return false;
+      Pair<A, B> that = (Pair<A, B>) o;
+      return this.a.equals(that.a) && this.b.equals(that.b);
+    }
+
+    @Override
+    public int compareTo(Pair<A, B> that) {
+      int acmp = this.a.compareTo(that.a);
+      if (acmp < 0)
+        return -1;
+      if (acmp > 0)
+        return 1;
+      return this.b.compareTo(that.b);
+    }
+  }
     
   public ResultSet run(Connection conn, Random gen,
       int terminalWarehouseID, int numWarehouses,
@@ -98,26 +130,41 @@ public class NewOrder extends Procedure {
     int[] itemIDs = new int[numItems];
     int[] supplierWarehouseIDs = new int[numItems];
     int[] orderQuantities = new int[numItems];
+    List<Pair<Integer, Integer>> values = new ArrayList<Pair<Integer, Integer>>();
     int allLocal = 1;
     for (int i = 0; i < numItems; i++) {
-      itemIDs[i] = TPCCUtil.getItemID(gen);
+      int item = TPCCUtil.getItemID(gen);
+      int warehouse;
+
       if (TPCCUtil.randomNumber(1, 100, gen) > 1) {
-        supplierWarehouseIDs[i] = terminalWarehouseID;
+        warehouse = terminalWarehouseID;
       } else {
         do {
-          supplierWarehouseIDs[i] = TPCCUtil.randomNumber(1,
+          warehouse = TPCCUtil.randomNumber(1,
               numWarehouses, gen);
-        } while (supplierWarehouseIDs[i] == terminalWarehouseID
+        } while (warehouse == terminalWarehouseID
             && numWarehouses > 1);
         allLocal = 0;
       }
+
+      values.add(new Pair<Integer, Integer>(warehouse, item));
       orderQuantities[i] = TPCCUtil.randomNumber(1, 10, gen);
     }
 
     // we need to cause 1% of the new orders to be rolled back.
     if (TPCCUtil.randomNumber(1, 100, gen) == 1)
-      itemIDs[numItems - 1] = jTPCCConfig.INVALID_ITEM_ID;
+      values.set(
+          numItems - 1, 
+          new Pair<Integer, Integer>(values.get(numItems - 1).a, jTPCCConfig.INVALID_ITEM_ID));
 
+    // induce a sort ordering for items, to avoid deadlock
+    // use the ordering: (warehouse_id, item_id)
+    Collections.sort(values);
+
+    for (int i = 0; i < numItems; i++) {
+      supplierWarehouseIDs[i] = values.get(i).a;
+      itemIDs[i] = values.get(i).b;
+    }
 
     newOrderTransaction(terminalWarehouseID, districtID,
         customerID, numItems, allLocal, itemIDs,
