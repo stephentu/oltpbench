@@ -10,6 +10,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
+import net.minidev.json.JSONArray;
+import net.minidev.json.JSONStyle;
+import net.minidev.json.JSONValue;
+
+import net.spy.memcached.MemcachedClient;
+
 import org.apache.log4j.Logger;
 
 import com.oltpbenchmark.api.Procedure;
@@ -54,6 +60,78 @@ public class NewOrder extends Procedure {
 			+ "  ol_quantity, ol_amount, ol_dist_info) VALUES (?,?,?,?,?,?,?,?,?)");
     
 
+  public static String MCKeyCustWarehouseJoin(int w_id, int d_id, int c_id) {
+    return "tpcc:warehouse:customer:w_id:" + w_id + ":d_id:" + d_id + ":c_id:" + c_id;
+  }
+
+  public static String MCKeyItemById(int i_id) {
+    return "tpcc:item:i_id:" + i_id;
+  }
+
+  public static class CustWarehouseEntry {
+    public final float c_discount; 
+    public final String c_last;
+    public final String c_credit;
+    public final float w_tax;
+
+    public CustWarehouseEntry(float c_discount, String c_last, String c_credit, float w_tax) {
+      this.c_discount = c_discount; 
+      this.c_last = c_last;
+      this.c_credit = c_credit;
+      this.w_tax = w_tax;
+    }
+
+    public String toJson() {
+      JSONArray a = new JSONArray();
+      a.add(c_discount);
+      a.add(c_last);
+      a.add(c_credit);
+      a.add(w_tax);
+      return a.toJSONString();
+    }
+
+    public static CustWarehouseEntry FromJson(String s) {
+      JSONArray a = (JSONArray) JSONValue.parse(s);
+      if (a == null)
+          throw new RuntimeException("bad json: " + s);
+      return new CustWarehouseEntry(
+          (Float)a.get(0),
+          (String)a.get(1),
+          (String)a.get(2),
+          (Float)a.get(3));
+    }
+  }
+
+  public static class ItemEntry {
+    public final float i_price;
+    public final String i_name;
+    public final String i_data;
+
+    public ItemEntry(float i_price, String i_name, String i_data) {
+      this.i_price = i_price;
+      this.i_name = i_name;
+      this.i_data = i_data;
+    }
+
+    public String toJson() {
+      JSONArray a = new JSONArray();
+      a.add(i_price);
+      a.add(i_name);
+      a.add(i_data);
+      return a.toJSONString();
+    }
+
+    public static ItemEntry FromJson(String s) {
+      JSONArray a = (JSONArray) JSONValue.parse(s);
+      if (a == null)
+          throw new RuntimeException("bad json: " + s);
+      return new ItemEntry(
+          (Float)a.get(0),
+          (String)a.get(1),
+          (String)a.get(2));
+    }
+  }
+
 	// NewOrder Txn
 	private PreparedStatement stmtGetCustWhse = null; 
 	private PreparedStatement stmtGetDist = null;
@@ -95,7 +173,7 @@ public class NewOrder extends Procedure {
     }
   }
     
-  public ResultSet run(Connection conn, Random gen,
+  public ResultSet run(Connection conn, MemcachedClient mcclient, Random gen,
       int terminalWarehouseID, int numWarehouses,
       int terminalDistrictLowerID, int terminalDistrictUpperID,
       TPCCWorker w) throws SQLException {
@@ -168,18 +246,18 @@ public class NewOrder extends Procedure {
 
     newOrderTransaction(terminalWarehouseID, districtID,
         customerID, numItems, allLocal, itemIDs,
-        supplierWarehouseIDs, orderQuantities, conn, w);
+        supplierWarehouseIDs, orderQuantities, conn, mcclient, w);
     return null;
 
   }
 	
 	private void newOrderTransaction(int w_id, int d_id, int c_id,
 			int o_ol_cnt, int o_all_local, int[] itemIDs,
-			int[] supplierWarehouseIDs, int[] orderQuantities, Connection conn, TPCCWorker w)
+			int[] supplierWarehouseIDs, int[] orderQuantities, Connection conn, MemcachedClient mcclient, TPCCWorker w)
 			throws SQLException {
-		float c_discount, w_tax, d_tax = 0, i_price;
+		float c_discount = 0, w_tax = 0, d_tax = 0, i_price = 0;
 		int d_next_o_id, o_id = -1, s_quantity;
-		String c_last = null, c_credit = null, i_name, i_data, s_data;
+		String c_last = null, c_credit = null, i_name = null, i_data = null, s_data;
 		String s_dist_01, s_dist_02, s_dist_03, s_dist_04, s_dist_05;
 		String s_dist_06, s_dist_07, s_dist_08, s_dist_09, s_dist_10, ol_dist_info = null;
 		float[] itemPrices = new float[o_ol_cnt];
@@ -192,21 +270,44 @@ public class NewOrder extends Procedure {
 		float ol_amount, total_amount = 0;
 		try
 		{
-			stmtGetCustWhse.setInt(1, w_id);
-			stmtGetCustWhse.setInt(2, w_id);
-			stmtGetCustWhse.setInt(3, d_id);
-			stmtGetCustWhse.setInt(4, c_id);
-			ResultSet rs = stmtGetCustWhse.executeQuery();
-			if (!rs.next())
-				throw new RuntimeException("W_ID=" + w_id + " C_D_ID=" + d_id
-						+ " C_ID=" + c_id + " not found!");
-			c_discount = rs.getFloat("c_discount");
-			c_last = rs.getString("c_last");
-			c_credit = rs.getString("c_credit");
-			w_tax = rs.getFloat("w_tax");
-			rs.close();
-			rs = null;
+      CustWarehouseEntry cwEntry = null;
+      String mckeyCwEntry = null;
+      if (mcclient != null) {
+        Object o = null;
+        if ((o = mcclient.get((mckeyCwEntry = MCKeyCustWarehouseJoin(w_id, d_id, c_id)))) != null) {
+          cwEntry = CustWarehouseEntry.FromJson((String) o);
+          c_discount = cwEntry.c_discount;
+          c_last = cwEntry.c_last;
+          c_credit = cwEntry.c_credit;
+          w_tax = cwEntry.w_tax;
+        }
+      }
+  
+      ResultSet rs = null;
+      if (cwEntry == null) {
+        stmtGetCustWhse.setInt(1, w_id);
+        stmtGetCustWhse.setInt(2, w_id);
+        stmtGetCustWhse.setInt(3, d_id);
+        stmtGetCustWhse.setInt(4, c_id);
+        rs = stmtGetCustWhse.executeQuery();
+        if (!rs.next())
+          throw new RuntimeException("W_ID=" + w_id + " C_D_ID=" + d_id
+              + " C_ID=" + c_id + " not found!");
+        c_discount = rs.getFloat("c_discount");
+        c_last = rs.getString("c_last");
+        c_credit = rs.getString("c_credit");
+        w_tax = rs.getFloat("w_tax");
+        rs.close();
+        rs = null;
 
+        if (mcclient != null) {
+          try { 
+            mcclient.set(mckeyCwEntry, jTPCCConfig.MC_KEY_TIMEOUT, new CustWarehouseEntry(c_discount, c_last, c_credit, w_tax).toJson());
+          } catch (IllegalStateException e) {
+            LOG.warn("MC queue is full", e);
+          }
+        }
+      }
 
 			stmtGetDist.setInt(1, w_id);
 			stmtGetDist.setInt(2, d_id);
@@ -221,7 +322,6 @@ public class NewOrder extends Procedure {
 			rs = null;
 			o_id = d_next_o_id;
 
-
 			stmtInsertNewOrder.setInt(1, o_id);
 			stmtInsertNewOrder.setInt(2, d_id);
 			stmtInsertNewOrder.setInt(3, w_id);
@@ -234,6 +334,17 @@ public class NewOrder extends Procedure {
 				throw new RuntimeException(
 						"Error!! Cannot update next_order_id on district for D_ID="
 								+ d_id + " D_W_ID=" + w_id);
+
+      if (mcclient != null) {
+        while (true) {
+          try {
+            mcclient.delete(OrderStatus.MCKeyNewestOrderByCustId(w_id, d_id, c_id));
+            break;
+          } catch (IllegalStateException e) {
+            LOG.warn("MC queue is full", e);
+          }
+        }
+      }
 
 			stmtInsertOOrder.setInt(1, o_id);
 			stmtInsertOOrder.setInt(2, d_id);
@@ -249,24 +360,47 @@ public class NewOrder extends Procedure {
 				ol_supply_w_id = supplierWarehouseIDs[ol_number - 1];
 				ol_i_id = itemIDs[ol_number - 1];
 				ol_quantity = orderQuantities[ol_number - 1];
-				stmtGetItem.setInt(1, ol_i_id);
-				rs = stmtGetItem.executeQuery();
-				if (!rs.next()) {
-					// This is (hopefully) an expected error: this is an
-					// expected new order rollback
-					assert ol_number == o_ol_cnt;
-					assert ol_i_id == jTPCCConfig.INVALID_ITEM_ID;
-					rs.close();
-					throw new UserAbortException(
-							"EXPECTED new order rollback: I_ID=" + ol_i_id
-									+ " not found!");
-				}
 
-				i_price = rs.getFloat("i_price");
-				i_name = rs.getString("i_name");
-				i_data = rs.getString("i_data");
-				rs.close();
-				rs = null;
+        String mckeyItem = null;
+        ItemEntry itemEntry = null;
+        if (mcclient != null) {
+          Object o = null;
+          if ((o = mcclient.get((mckeyItem = MCKeyItemById(ol_i_id)))) != null) {
+            itemEntry = ItemEntry.FromJson((String) o);
+            i_price = itemEntry.i_price;
+            i_name = itemEntry.i_name;
+            i_data = itemEntry.i_data;
+          }
+        }
+
+        if (itemEntry == null) {
+          stmtGetItem.setInt(1, ol_i_id);
+          rs = stmtGetItem.executeQuery();
+          if (!rs.next()) {
+            // This is (hopefully) an expected error: this is an
+            // expected new order rollback
+            assert ol_number == o_ol_cnt;
+            assert ol_i_id == jTPCCConfig.INVALID_ITEM_ID;
+            rs.close();
+            throw new UserAbortException(
+                "EXPECTED new order rollback: I_ID=" + ol_i_id
+                    + " not found!");
+          }
+
+          i_price = rs.getFloat("i_price");
+          i_name = rs.getString("i_name");
+          i_data = rs.getString("i_data");
+          rs.close();
+          rs = null;
+
+          if (mcclient != null) {
+            try { 
+              mcclient.set(mckeyItem, jTPCCConfig.MC_KEY_TIMEOUT, new ItemEntry(i_price, i_name, i_data).toJson());
+            } catch (IllegalStateException e) {
+              LOG.warn("MC queue is full", e);
+            }
+          }
+        }
 
 				itemPrices[ol_number - 1] = i_price;
 				itemNames[ol_number - 1] = i_name;

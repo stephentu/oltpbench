@@ -108,7 +108,7 @@ public class TPCCWorker extends Worker {
   protected TransactionStatus executeWork(TransactionType nextTransaction) throws UserAbortException, SQLException {
       if (nextTransaction.getProcedureClass().equals(NewOrder.class)) {
           NewOrder proc = (NewOrder) this.getProcedure(NewOrder.class);
-          proc.run(conn, gen, terminalWarehouseID, numWarehouses,
+          proc.run(conn, mcclient, gen, terminalWarehouseID, numWarehouses,
                   terminalDistrictLowerID, terminalDistrictUpperID, this);
       } else if (nextTransaction.getProcedureClass().equals(Payment.class)) {
           Payment proc2 = (Payment) this.getProcedure(Payment.class);
@@ -120,7 +120,7 @@ public class TPCCWorker extends Worker {
                   terminalDistrictLowerID, terminalDistrictUpperID, this);
       } else if (nextTransaction.getProcedureClass().equals(OrderStatus.class)) {
           OrderStatus proc4 = (OrderStatus) this.getProcedure(OrderStatus.class);
-          proc4.run(conn, gen, terminalWarehouseID, numWarehouses, 
+          proc4.run(conn, mcclient, gen, terminalWarehouseID, numWarehouses, 
                   terminalDistrictLowerID, terminalDistrictUpperID, this);
       } else if (nextTransaction.getProcedureClass().equals(Delivery.class)) {
           Delivery proc5 = (Delivery) this.getProcedure(Delivery.class);
