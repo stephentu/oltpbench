@@ -534,5 +534,13 @@ public class AutoIncrementPreparedStatement implements PreparedStatement {
         this.stmt.setNClob(parameterIndex, reader);
     }
 
+    @Override
+    public void closeOnCompletion() throws SQLException {
+        throw new SQLException();
+    }
 
+    @Override
+    public boolean isCloseOnCompletion() throws SQLException {
+        throw new SQLException();
+    }
 }

@@ -682,6 +682,15 @@ public class TPCCLoader extends Loader{
 			throw new NotImplementedException();
 		}
 
+		@Override
+    public void closeOnCompletion() throws SQLException {
+        throw new SQLException();
+    }
+
+		@Override
+    public boolean isCloseOnCompletion() throws SQLException {
+        throw new SQLException();
+    }
 	}
 
 	// *********** JDBC specific variables ***********************
