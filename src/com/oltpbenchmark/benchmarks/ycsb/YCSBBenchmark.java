@@ -61,14 +61,17 @@ public class YCSBBenchmark extends BenchmarkModule {
             readUpdateHotDataSkew = xml.getDouble("hotDataSkew");
             readUpdateWarmAccessSkew = xml.getDouble("warmAccessSkew");
             readUpdateWarmDataSkew = xml.getDouble("warmDataSkew");
-            memcachedWarmup = xml.getInt("memcachedWarmup");
+            memcachedWarmup = xml.getInt("memcachedMemPercent");
         } else {
             readUpdateHotAccessSkew = 80.0;
             readUpdateHotDataSkew = 20.0;
             readUpdateWarmAccessSkew = 10.0;
             readUpdateWarmDataSkew = 10.0;
-            memcachedWarmup = 1000;
+            memcachedWarmup = 100;
         }
+
+        if (memcachedWarmup < 0 || memcachedWarmup > 100)
+          throw new IllegalArgumentException("bad warmup percentage");
     }
     
     // percentages
@@ -113,7 +116,7 @@ public class YCSBBenchmark extends BenchmarkModule {
             if (memcachedWarmup > 0) {
                 YCSBWorker w = (YCSBWorker) workers.get(0);
                 Map<Integer, String> rec = w.readRecord(0); 
-                for (int i = 0; i < Math.min(memcachedWarmup, init_record_count); i++) {
+                for (int i = 0; i < (int)(((double)init_record_count) * ((double)memcachedWarmup)/100.0); i++) {
                     w.putInMC(i, rec);
                     //if (((i+1) % 10000) == 0)
                     //  System.out.println("i elems: " + (i+1));

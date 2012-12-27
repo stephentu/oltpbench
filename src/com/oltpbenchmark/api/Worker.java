@@ -119,6 +119,11 @@ public abstract class Worker implements Runnable {
 	public final Connection getConnection() {
 	    return (this.conn);
 	}
+
+  public final MemcachedClient getMCClient() {
+      return this.mcclient;
+  }
+
 	public final int getRequests() {
         return latencies.size();
     }
