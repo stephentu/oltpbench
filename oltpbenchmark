@@ -1,5 +1,5 @@
 #!/bin/bash
-java -Xmx8000m -cp `./classpath.sh` \
+java -Xmx16G -cp `./classpath.sh` \
   -Dlog4j.configuration=log4j.properties \
   -Dnet.spy.log.LoggerImpl=net.spy.memcached.compat.log.Log4JLogger \
   com.oltpbenchmark.DBWorkload $@
