@@ -95,10 +95,10 @@ public class NewOrder extends Procedure {
       if (a == null)
           throw new RuntimeException("bad json: " + s);
       return new CustWarehouseEntry(
-          (Float)a.get(0),
+          ((Double)a.get(0)).floatValue(),
           (String)a.get(1),
           (String)a.get(2),
-          (Float)a.get(3));
+          ((Double)a.get(3)).floatValue());
     }
   }
 
@@ -126,7 +126,7 @@ public class NewOrder extends Procedure {
       if (a == null)
           throw new RuntimeException("bad json: " + s);
       return new ItemEntry(
-          (Float)a.get(0),
+          ((Double)a.get(0)).floatValue(),
           (String)a.get(1),
           (String)a.get(2));
     }
