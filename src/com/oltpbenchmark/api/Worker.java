@@ -37,7 +37,7 @@ public abstract class Worker implements Runnable {
 	private final BenchmarkModule benchmarkModule;
 	protected final Connection conn;
 	protected MemcachedClient mcclient;
-  protected final HSClient hsClient;
+  protected HSClient hsClient;
 	protected final WorkloadConfiguration wrkld;
 	protected final TransactionTypes transactionTypes;
 	protected final Map<TransactionType, Procedure> procedures = new HashMap<TransactionType, Procedure>();

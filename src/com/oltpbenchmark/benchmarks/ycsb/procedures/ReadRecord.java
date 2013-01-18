@@ -15,6 +15,8 @@ import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.benchmarks.ycsb.YCSBBenchmark;
 import com.oltpbenchmark.benchmarks.ycsb.YCSBConstants;
 
+import com.google.code.hs4j.IndexSession;
+
 public class ReadRecord extends Procedure{
     public final SQLStmt readStmt = new SQLStmt(
         "SELECT * FROM USERTABLE WHERE YCSB_KEY=?"
@@ -23,7 +25,8 @@ public class ReadRecord extends Procedure{
     private static final Logger LOG = Logger.getLogger(ReadRecord.class);
     
 	//FIXME: The value in ysqb is a byteiterator
-    public void run(Connection conn, MemcachedClient mcclient, int keyname, Map<Integer,String> results) throws SQLException {
+    public void run(Connection conn, MemcachedClient mcclient, IndexSession userTable,
+                    boolean useHS, int keyname, Map<Integer, String> results) throws SQLException {
         
         if (mcclient != null) {
             // check MC
@@ -34,15 +37,28 @@ public class ReadRecord extends Procedure{
             }
         }
         
-        PreparedStatement stmt = this.getPreparedStatement(conn, readStmt);
-        stmt.setInt(1, keyname);          
-        ResultSet r=stmt.executeQuery();
-        while(r.next())
-        {
-        	for(int i=1;i<11;i++)
-        		results.put(i, r.getString(i));
+        if (useHS) {
+            try {
+                ResultSet r = userTable.find(new String[] { "" + keyname });
+                while (r.next()) {
+                    for(int i=2;i<=11;i++)
+                        results.put(i - 1, r.getString(i));
+                }
+                r.close();
+            } catch (Exception e) {
+                throw new SQLException(e);
+            }
+        } else {
+            PreparedStatement stmt = this.getPreparedStatement(conn, readStmt);
+            stmt.setInt(1, keyname);          
+            ResultSet r=stmt.executeQuery();
+            while(r.next())
+            {
+                for(int i=1;i<11;i++)
+                    results.put(i, r.getString(i));
+            }
+            r.close();
         }
-        r.close();
         
         if (mcclient != null) {
             try { 

@@ -72,6 +72,8 @@ public class YCSBBenchmark extends BenchmarkModule {
 
         if (memcachedWarmup < 0 || memcachedWarmup > 100)
           throw new IllegalArgumentException("bad warmup percentage");
+
+        useHS = xml.getBoolean("useHS");
     }
     
     // percentages
@@ -81,6 +83,7 @@ public class YCSBBenchmark extends BenchmarkModule {
     private final double readUpdateWarmDataSkew;
     
     private final int memcachedWarmup;
+    private final boolean useHS;
 
     @Override
     protected List<Worker> makeWorkersImpl(boolean verbose) throws IOException {
@@ -110,7 +113,8 @@ public class YCSBBenchmark extends BenchmarkModule {
                       readUpdateHotAccessSkew, 
                       readUpdateHotDataSkew,
                       readUpdateWarmAccessSkew, 
-                      readUpdateWarmDataSkew));
+                      readUpdateWarmDataSkew,
+                      useHS));
             } // FOR
 
             if (memcachedWarmup > 0) {

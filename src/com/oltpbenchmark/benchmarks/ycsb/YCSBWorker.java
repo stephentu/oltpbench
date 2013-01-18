@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
+
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Procedure;
 import com.oltpbenchmark.api.Procedure.UserAbortException;
@@ -25,6 +27,7 @@ import com.oltpbenchmark.util.TextGenerator;
 import com.google.code.hs4j.IndexSession;
 
 public class YCSBWorker extends Worker {
+    private static final Logger LOG = Logger.getLogger(YCSBWorker.class);
 
     private CustomSkewThreeLevelGenerator readRecord;
     private static CounterGenerator insertRecord;
@@ -36,7 +39,8 @@ public class YCSBWorker extends Worker {
         double readUpdateHotAccessSkew, 
         double readUpdateHotDataSkew,
         double readUpdateWarmAccessSkew, 
-        double readUpdateWarmDataSkew) {
+        double readUpdateWarmDataSkew,
+        boolean useHS) {
         super(benchmarkModule, id);
         readRecord = new CustomSkewThreeLevelGenerator(init_record_count, 
             (int) readUpdateHotAccessSkew, 
@@ -54,12 +58,19 @@ public class YCSBWorker extends Worker {
             }
         } // SYNCH
 
-        userTableIdx = this.hsClient.openIndexSession(wrkld.getDBName(), "USERTABLE", "PRIMARY", 
-            new String[] { "YCSB_KEY", "FIELD1", "FIELD2", "FIELD3", "FIELD4", "FIELD5",
-                     "FIELD6", "FIELD7", "FIELD8", "FIELD9", "FIELD10" });
+        try {
+          this.userTableIdx = this.hsClient.openIndexSession(wrkld.getDBName(), "USERTABLE", "PRIMARY", 
+              new String[] { "YCSB_KEY", "FIELD1", "FIELD2", "FIELD3", "FIELD4", "FIELD5",
+                "FIELD6", "FIELD7", "FIELD8", "FIELD9", "FIELD10" });
+        } catch (Exception ex) {
+          LOG.warn("fixme", ex);
+        }
+
+        this.useHS = useHS;
     }
 
     private IndexSession userTableIdx; 
+    private boolean useHS;
 
     @Override
     protected TransactionStatus executeWork(TransactionType nextTrans) throws UserAbortException, SQLException {
@@ -87,7 +98,7 @@ public class YCSBWorker extends Worker {
         assert (proc != null);
         int keyname = readRecord.nextInt();
         Map<Integer, String> values = buildValues(10);
-        proc.run(conn, mcclient, keyname, values);
+        proc.run(conn, mcclient, userTableIdx, useHS, keyname, values);
     }
 
     private void scanRecord() throws SQLException {
@@ -102,7 +113,7 @@ public class YCSBWorker extends Worker {
         ReadRecord proc = this.getProcedure(ReadRecord.class);
         assert (proc != null);
         Map<Integer, String> ret = new HashMap<Integer, String>();
-        proc.run(conn, mcclient, keyname, ret);
+        proc.run(conn, mcclient, userTableIdx, useHS, keyname, ret);
         return ret;
     }
 
@@ -119,7 +130,7 @@ public class YCSBWorker extends Worker {
         ReadRecord proc = this.getProcedure(ReadRecord.class);
         assert (proc != null);
         int keyname = readRecord.nextInt();
-        proc.run(conn, mcclient, keyname, new HashMap<Integer, String>());
+        proc.run(conn, mcclient, userTableIdx, useHS, keyname, new HashMap<Integer, String>());
     }
 
     private void readModifyWriteRecord() throws SQLException {

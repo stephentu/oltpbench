@@ -48,6 +48,7 @@ import com.oltpbenchmark.util.ClassUtil;
 import com.oltpbenchmark.util.ScriptRunner;
 
 import com.google.code.hs4j.HSClient;
+import com.google.code.hs4j.impl.HSClientImpl;
 
 /**
  * Base class for all benchmark implementations
@@ -165,6 +166,7 @@ public abstract class BenchmarkModule {
 
     protected final HSClient getLastHSClient() {
         return (this.last_hsClient);
+    }
 
     public final void shutdown() {
       for (MemcachedClient c : mcclients) {
