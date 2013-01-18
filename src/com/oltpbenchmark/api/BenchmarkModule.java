@@ -22,6 +22,7 @@ package com.oltpbenchmark.api;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.net.URL;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -45,6 +46,8 @@ import com.oltpbenchmark.catalog.Table;
 import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.util.ClassUtil;
 import com.oltpbenchmark.util.ScriptRunner;
+
+import com.google.code.hs4j.HSClient;
 
 /**
  * Base class for all benchmark implementations
@@ -86,6 +89,8 @@ public abstract class BenchmarkModule {
 
     private List<MemcachedClient> mcclients = new ArrayList<MemcachedClient>();
     
+    private HSClient last_hsClient;
+
     /**
      * A single Random object that should be re-used by all a benchmark's components
      */
@@ -151,6 +156,15 @@ public abstract class BenchmarkModule {
     protected final MemcachedClient getLastMCClient() {
         return last_mcclient;
     }
+
+    protected final HSClient makeHSClient() throws IOException {
+        URI u = URI.create(workConf.getDBConnection().substring(5));
+        this.last_hsClient = new HSClientImpl(new InetSocketAddress(u.getHost(), 9999));;
+        return this.last_hsClient;
+    }
+
+    protected final HSClient getLastHSClient() {
+        return (this.last_hsClient);
 
     public final void shutdown() {
       for (MemcachedClient c : mcclients) {

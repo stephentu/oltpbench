@@ -22,6 +22,8 @@ import com.oltpbenchmark.distributions.ZipfianGenerator;
 import com.oltpbenchmark.types.TransactionStatus;
 import com.oltpbenchmark.util.TextGenerator;
 
+import com.google.code.hs4j.IndexSession;
+
 public class YCSBWorker extends Worker {
 
     private CustomSkewThreeLevelGenerator readRecord;
@@ -51,7 +53,13 @@ public class YCSBWorker extends Worker {
                 insertRecord = new CounterGenerator(init_record_count);
             }
         } // SYNCH
+
+        userTableIdx = this.hsClient.openIndexSession(wrkld.getDBName(), "USERTABLE", "PRIMARY", 
+            new String[] { "YCSB_KEY", "FIELD1", "FIELD2", "FIELD3", "FIELD4", "FIELD5",
+                     "FIELD6", "FIELD7", "FIELD8", "FIELD9", "FIELD10" });
     }
+
+    private IndexSession userTableIdx; 
 
     @Override
     protected TransactionStatus executeWork(TransactionType nextTrans) throws UserAbortException, SQLException {

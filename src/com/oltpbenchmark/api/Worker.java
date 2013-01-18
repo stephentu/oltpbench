@@ -25,6 +25,8 @@ import com.oltpbenchmark.types.TransactionStatus;
 import com.oltpbenchmark.util.Histogram;
 import com.oltpbenchmark.util.StringUtil;
 
+import com.google.code.hs4j.HSClient;
+
 public abstract class Worker implements Runnable {
     private static final Logger LOG = Logger.getLogger(Worker.class);
 
@@ -35,6 +37,7 @@ public abstract class Worker implements Runnable {
 	private final BenchmarkModule benchmarkModule;
 	protected final Connection conn;
 	protected MemcachedClient mcclient;
+  protected final HSClient hsClient;
 	protected final WorkloadConfiguration wrkld;
 	protected final TransactionTypes transactionTypes;
 	protected final Map<TransactionType, Procedure> procedures = new HashMap<TransactionType, Procedure>();
@@ -71,6 +74,13 @@ public abstract class Worker implements Runnable {
 		    LOG.warn("Could not connect to memcached instance: " + ex.getMessage());
 		    this.mcclient = null;
 		}
+
+    try {
+        this.hsClient = this.benchmarkModule.makeHSClient();
+    } catch (IOException ex) {
+        LOG.warn("could not connect to handler socket", ex);
+        this.hsClient = null;
+    }
 		
 		// Generate all the Procedures that we're going to need
 		this.procedures.putAll(this.benchmarkModule.getProcedures());
