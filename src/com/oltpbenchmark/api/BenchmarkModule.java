@@ -158,10 +158,19 @@ public abstract class BenchmarkModule {
         return last_mcclient;
     }
 
+    private static HSClient HSClientSingleton = null;
+
     protected final HSClient makeHSClient() throws IOException {
-        URI u = URI.create(workConf.getDBConnection().substring(5));
-        this.last_hsClient = new HSClientImpl(new InetSocketAddress(u.getHost(), 9999));;
-        return this.last_hsClient;
+        // docs suggest making HSClient a singleton
+        if (HSClientSingleton != null)
+          return (this.last_hsClient = HSClientSingleton);
+        synchronized (BenchmarkModule.class) {
+          if (HSClientSingleton != null)
+            return (this.last_hsClient = HSClientSingleton);
+          URI u = URI.create(workConf.getDBConnection().substring(5));
+          HSClientSingleton = new HSClientImpl(new InetSocketAddress(u.getHost(), 9999));;
+          return (this.last_hsClient = HSClientSingleton);
+        }
     }
 
     protected final HSClient getLastHSClient() {
@@ -174,6 +183,13 @@ public abstract class BenchmarkModule {
       }
       mcclients.clear();
       this.last_mcclient = null;
+      try {
+        HSClientSingleton.shutdown();
+      } catch (IOException e) {
+        LOG.warn("hs shutdown", e);
+      }
+      HSClientSingleton = null;
+      this.last_hsClient = null;
     }
 
     // --------------------------------------------------------------------------
