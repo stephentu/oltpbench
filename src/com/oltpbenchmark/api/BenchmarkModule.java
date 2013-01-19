@@ -47,8 +47,9 @@ import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.util.ClassUtil;
 import com.oltpbenchmark.util.ScriptRunner;
 
-import com.google.code.hs4j.HSClient;
-import com.google.code.hs4j.impl.HSClientImpl;
+import com.google.code.hs4j.*;
+import com.google.code.hs4j.impl.*;
+import com.google.code.hs4j.network.core.impl.*;
 
 /**
  * Base class for all benchmark implementations
@@ -90,8 +91,6 @@ public abstract class BenchmarkModule {
 
     private List<MemcachedClient> mcclients = new ArrayList<MemcachedClient>();
     
-    private HSClient last_hsClient;
-
     /**
      * A single Random object that should be re-used by all a benchmark's components
      */
@@ -158,23 +157,40 @@ public abstract class BenchmarkModule {
         return last_mcclient;
     }
 
-    private static HSClient HSClientSingleton = null;
+    private static HSClient HSReadClientSingleton = null;
+    private static HSClient HSReadWriteClientSingleton = null;
 
-    protected final HSClient makeHSClient() throws IOException {
-        // docs suggest making HSClient a singleton
-        if (HSClientSingleton != null)
-          return (this.last_hsClient = HSClientSingleton);
+    private final HSClient mkClient(int port, int poolSize) throws IOException {
+      URI u = URI.create(workConf.getDBConnection().substring(5));
+      HSClientBuilder b = new HSClientBuilderImpl(); 
+      b.setConnectionPoolSize(poolSize);
+      b.setServerAddress(new InetSocketAddress(u.getHost(), port));
+      b.setSocketOption(StandardSocketOption.TCP_NODELAY, false);
+      return b.build();
+    }
+
+    protected final HSClient makeHSReadClient() throws IOException {
+        if (HSReadClientSingleton != null)
+          return (HSReadClientSingleton);
         synchronized (BenchmarkModule.class) {
-          if (HSClientSingleton != null)
-            return (this.last_hsClient = HSClientSingleton);
+          if (HSReadClientSingleton != null)
+            return (HSReadClientSingleton);
           URI u = URI.create(workConf.getDBConnection().substring(5));
-          HSClientSingleton = new HSClientImpl(new InetSocketAddress(u.getHost(), 9999));;
-          return (this.last_hsClient = HSClientSingleton);
+          HSReadClientSingleton = mkClient(9998, 300);
+          return (HSReadClientSingleton);
         }
     }
 
-    protected final HSClient getLastHSClient() {
-        return (this.last_hsClient);
+    protected final HSClient makeHSReadWriteClient() throws IOException {
+        if (HSReadWriteClientSingleton != null)
+          return (HSReadWriteClientSingleton);
+        synchronized (BenchmarkModule.class) {
+          if (HSReadWriteClientSingleton != null)
+            return (HSReadWriteClientSingleton);
+          URI u = URI.create(workConf.getDBConnection().substring(5));
+          HSReadWriteClientSingleton = mkClient(9999, 100);
+          return (HSReadWriteClientSingleton);
+        }
     }
 
     public final void shutdown() {
@@ -184,12 +200,17 @@ public abstract class BenchmarkModule {
       mcclients.clear();
       this.last_mcclient = null;
       try {
-        HSClientSingleton.shutdown();
+        HSReadClientSingleton.shutdown();
       } catch (IOException e) {
-        LOG.warn("hs shutdown", e);
+        LOG.warn("hs read shutdown", e);
       }
-      HSClientSingleton = null;
-      this.last_hsClient = null;
+      HSReadClientSingleton = null;
+      try {
+        HSReadWriteClientSingleton.shutdown();
+      } catch (IOException e) {
+        LOG.warn("hs rw shutdown", e);
+      }
+      HSReadWriteClientSingleton = null;
     }
 
     // --------------------------------------------------------------------------

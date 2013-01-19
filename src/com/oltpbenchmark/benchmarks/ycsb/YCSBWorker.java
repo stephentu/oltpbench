@@ -34,13 +34,19 @@ public class YCSBWorker extends Worker {
     private ZipfianGenerator randScan;
 
     private final Map<Integer, String> m = new HashMap<Integer, String>();
+
+
     
     public YCSBWorker(int id, BenchmarkModule benchmarkModule, int init_record_count, 
         double readUpdateHotAccessSkew, 
         double readUpdateHotDataSkew,
         double readUpdateWarmAccessSkew, 
         double readUpdateWarmDataSkew,
-        boolean useHS) {
+        boolean useHS,
+
+        IndexSession readIdx, IndexSession rwIdx
+        
+        ) {
         super(benchmarkModule, id);
         readRecord = new CustomSkewThreeLevelGenerator(init_record_count, 
             (int) readUpdateHotAccessSkew, 
@@ -58,19 +64,14 @@ public class YCSBWorker extends Worker {
             }
         } // SYNCH
 
-        try {
-          this.userTableIdx = this.hsClient.openIndexSession(wrkld.getDBName(), "USERTABLE", "PRIMARY", 
-              new String[] { "YCSB_KEY", "FIELD1", "FIELD2", "FIELD3", "FIELD4", "FIELD5",
-                "FIELD6", "FIELD7", "FIELD8", "FIELD9", "FIELD10" });
-        } catch (Exception ex) {
-          LOG.warn("fixme", ex);
-        }
-
         this.useHS = useHS;
+        this.readIdx = readIdx;
+        this.rwIdx = rwIdx;
     }
 
-    private IndexSession userTableIdx; 
     private boolean useHS;
+    private final IndexSession readIdx;
+    private final IndexSession rwIdx;
 
     @Override
     protected TransactionStatus executeWork(TransactionType nextTrans) throws UserAbortException, SQLException {
@@ -98,7 +99,7 @@ public class YCSBWorker extends Worker {
         assert (proc != null);
         int keyname = readRecord.nextInt();
         Map<Integer, String> values = buildValues(10);
-        proc.run(conn, mcclient, userTableIdx, useHS, keyname, values);
+        proc.run(conn, mcclient, rwIdx, useHS, keyname, values);
     }
 
     private void scanRecord() throws SQLException {
@@ -113,7 +114,7 @@ public class YCSBWorker extends Worker {
         ReadRecord proc = this.getProcedure(ReadRecord.class);
         assert (proc != null);
         Map<Integer, String> ret = new HashMap<Integer, String>();
-        proc.run(conn, mcclient, userTableIdx, useHS, keyname, ret);
+        proc.run(conn, mcclient, readIdx, useHS, keyname, ret);
         return ret;
     }
 
@@ -130,7 +131,7 @@ public class YCSBWorker extends Worker {
         ReadRecord proc = this.getProcedure(ReadRecord.class);
         assert (proc != null);
         int keyname = readRecord.nextInt();
-        proc.run(conn, mcclient, userTableIdx, useHS, keyname, new HashMap<Integer, String>());
+        proc.run(conn, mcclient, readIdx, useHS, keyname, new HashMap<Integer, String>());
     }
 
     private void readModifyWriteRecord() throws SQLException {

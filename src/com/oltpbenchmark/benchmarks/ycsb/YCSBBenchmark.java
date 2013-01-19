@@ -16,6 +16,8 @@ import net.minidev.json.JSONValue;
 
 import org.apache.commons.configuration.XMLConfiguration;
 
+import org.apache.log4j.Logger;
+
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
@@ -24,7 +26,12 @@ import com.oltpbenchmark.benchmarks.ycsb.procedures.InsertRecord;
 import com.oltpbenchmark.catalog.Table;
 import com.oltpbenchmark.util.SQLUtil;
 
+import com.google.code.hs4j.*;
+import com.google.code.hs4j.impl.*;
+import com.google.code.hs4j.network.core.impl.*;
+
 public class YCSBBenchmark extends BenchmarkModule {
+    private static final Logger LOG = Logger.getLogger(YCSBBenchmark.class);
 
     public static String MCKey(int ycsb_key) {
         return "ycsb:ycsb_key:" + ycsb_key;
@@ -106,6 +113,24 @@ public class YCSBBenchmark extends BenchmarkModule {
             assert init_record_count > 0;
             res.close();
 
+            IndexSession readIdx = null, rwIdx = null;
+
+            try {
+              readIdx = this.makeHSReadClient().openIndexSession(workConf.getDBName(), "USERTABLE", "PRIMARY", 
+                  new String[] { "YCSB_KEY", "FIELD1", "FIELD2", "FIELD3", "FIELD4", "FIELD5",
+                    "FIELD6", "FIELD7", "FIELD8", "FIELD9", "FIELD10" });
+            } catch (Exception ex) {
+              LOG.warn("fixme", ex);
+            }
+
+            try {
+              rwIdx = this.makeHSReadClient().openIndexSession(workConf.getDBName(), "USERTABLE", "PRIMARY", 
+                  new String[] { "YCSB_KEY", "FIELD1", "FIELD2", "FIELD3", "FIELD4", "FIELD5",
+                    "FIELD6", "FIELD7", "FIELD8", "FIELD9", "FIELD10" });
+            } catch (Exception ex) {
+              LOG.warn("fixme", ex);
+            }
+
             for (int i = 0; i < workConf.getTerminals(); ++i) {
 //                Connection conn = this.makeConnection();
 //                conn.setAutoCommit(false);
@@ -114,7 +139,7 @@ public class YCSBBenchmark extends BenchmarkModule {
                       readUpdateHotDataSkew,
                       readUpdateWarmAccessSkew, 
                       readUpdateWarmDataSkew,
-                      useHS));
+                      useHS, readIdx, rwIdx));
             } // FOR
 
             if (memcachedWarmup > 0) {

@@ -37,7 +37,8 @@ public abstract class Worker implements Runnable {
 	private final BenchmarkModule benchmarkModule;
 	protected final Connection conn;
 	protected MemcachedClient mcclient;
-  protected HSClient hsClient;
+  protected HSClient hsReadClient;
+  protected HSClient hsReadWriteClient;
 	protected final WorkloadConfiguration wrkld;
 	protected final TransactionTypes transactionTypes;
 	protected final Map<TransactionType, Procedure> procedures = new HashMap<TransactionType, Procedure>();
@@ -76,10 +77,17 @@ public abstract class Worker implements Runnable {
 		}
 
     try {
-        this.hsClient = this.benchmarkModule.makeHSClient();
+        this.hsReadClient = this.benchmarkModule.makeHSReadClient();
     } catch (IOException ex) {
-        LOG.warn("could not connect to handler socket", ex);
-        this.hsClient = null;
+        LOG.warn("could not connect to handler read socket", ex);
+        this.hsReadClient = null;
+    }
+
+    try {
+        this.hsReadWriteClient = this.benchmarkModule.makeHSReadWriteClient();
+    } catch (IOException ex) {
+        LOG.warn("could not connect to handler rw socket", ex);
+        this.hsReadWriteClient = null;
     }
 		
 		// Generate all the Procedures that we're going to need
