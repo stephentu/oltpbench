@@ -141,9 +141,9 @@ public abstract class BenchmarkModule {
     }
 
     private static final int NMaxMCClient = 300;
+    private static final boolean UseXMemC = false;
+
     private static int NCtr = 0;
-    
-    private static final boolean UseXMemC = true;
     
     private final MemcachedClientIface newMCClient() throws IOException {
         String hostname = workConf.getMCHostname() == null ? "127.0.0.1" : workConf.getMCHostname();
@@ -151,7 +151,7 @@ public abstract class BenchmarkModule {
         if (UseXMemC) {
             XMemcachedClientBuilder builder = new XMemcachedClientBuilder(
                 Collections.singletonList(new InetSocketAddress(hostname, port)));
-            builder.setConnectionPoolSize(1); // XXX: configure
+            builder.setConnectionPoolSize(32); // XXX: configure
             builder.setCommandFactory(new BinaryCommandFactory());
             builder.setConnectTimeout(60 * 60 * 60 * 1000);
             return new XMemcachedClientImpl(builder.build());
