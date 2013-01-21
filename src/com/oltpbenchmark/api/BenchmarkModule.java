@@ -29,6 +29,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -36,7 +37,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import net.spy.memcached.MemcachedClient;
+import net.spy.memcached.*;
 
 import org.apache.log4j.Logger;
 
@@ -84,11 +85,6 @@ public abstract class BenchmarkModule {
      */
     private Connection last_connection;
     
-    /**
-     * The last memcached connection that was created using this Benchmark Module
-     */
-    private MemcachedClient last_mcclient;
-
     private List<MemcachedClient> mcclients = new ArrayList<MemcachedClient>();
     
     /**
@@ -137,30 +133,36 @@ public abstract class BenchmarkModule {
     protected final Connection getLastConnection() {
         return (this.last_connection);
     }
+
+    private static final int NMaxMCClient = 300;
+    private static int NCtr = 0;
     
     protected final MemcachedClient makeMCClient() throws IOException {
         // no MC specified, so don't bother connecting
         if (workConf.getMCHostname() == null && workConf.getMCPort() == -1) return null;
-        
         String hostname = workConf.getMCHostname() == null ? "127.0.0.1" : workConf.getMCHostname();
         int port = workConf.getMCPort() == -1 ? 11211 : workConf.getMCPort();
-        
-        MemcachedClient c = new MemcachedClient(new InetSocketAddress(hostname, port));
         synchronized (this) {
+          if (this.mcclients.size() == NMaxMCClient) {
+            return this.mcclients.get(NCtr++ % NMaxMCClient);
+          }
+          ConnectionFactoryBuilder b = new ConnectionFactoryBuilder();
+          b.setOpTimeout(60 * 60 * 60 * 1000)
+           .setProtocol(ConnectionFactoryBuilder.Protocol.BINARY);
+          MemcachedClient c = new MemcachedClient(
+              b.build(), 
+              Collections.singletonList(new InetSocketAddress(hostname, port)));
           this.mcclients.add(c);
-          this.last_mcclient = c;
+          return c;
         }
-        return c;
     }
     
-    protected final MemcachedClient getLastMCClient() {
-        return last_mcclient;
-    }
-
     private static HSClient HSReadClientSingleton = null;
     private static HSClient HSReadWriteClientSingleton = null;
 
     private final HSClient mkClient(int port, int poolSize) throws IOException {
+      if (!workConf.getXmlConfig().getBoolean("useHS"))
+        return null;
       URI u = URI.create(workConf.getDBConnection().substring(5));
       HSClientBuilder b = new HSClientBuilderImpl(); 
       b.setConnectionPoolSize(poolSize);
@@ -176,7 +178,7 @@ public abstract class BenchmarkModule {
           if (HSReadClientSingleton != null)
             return (HSReadClientSingleton);
           URI u = URI.create(workConf.getDBConnection().substring(5));
-          HSReadClientSingleton = mkClient(9998, 300);
+          HSReadClientSingleton = mkClient(9998, 1);
           return (HSReadClientSingleton);
         }
     }
@@ -188,7 +190,7 @@ public abstract class BenchmarkModule {
           if (HSReadWriteClientSingleton != null)
             return (HSReadWriteClientSingleton);
           URI u = URI.create(workConf.getDBConnection().substring(5));
-          HSReadWriteClientSingleton = mkClient(9999, 100);
+          HSReadWriteClientSingleton = mkClient(9999, 1);
           return (HSReadWriteClientSingleton);
         }
     }
@@ -198,19 +200,20 @@ public abstract class BenchmarkModule {
         c.shutdown();
       }
       mcclients.clear();
-      this.last_mcclient = null;
       try {
-        HSReadClientSingleton.shutdown();
+        if (HSReadClientSingleton != null)
+          HSReadClientSingleton.shutdown();
+        HSReadClientSingleton = null;
       } catch (IOException e) {
         LOG.warn("hs read shutdown", e);
       }
-      HSReadClientSingleton = null;
       try {
-        HSReadWriteClientSingleton.shutdown();
+        if (HSReadWriteClientSingleton != null)
+          HSReadWriteClientSingleton.shutdown();
+        HSReadWriteClientSingleton = null;
       } catch (IOException e) {
         LOG.warn("hs rw shutdown", e);
       }
-      HSReadWriteClientSingleton = null;
     }
 
     // --------------------------------------------------------------------------

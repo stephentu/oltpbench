@@ -68,7 +68,7 @@ public class YCSBBenchmark extends BenchmarkModule {
             readUpdateHotDataSkew = xml.getDouble("hotDataSkew");
             readUpdateWarmAccessSkew = xml.getDouble("warmAccessSkew");
             readUpdateWarmDataSkew = xml.getDouble("warmDataSkew");
-            memcachedWarmup = xml.getInt("memcachedMemPercent");
+            memcachedWarmup = xml.getInt("memcachedWarmup");
         } else {
             readUpdateHotAccessSkew = 80.0;
             readUpdateHotDataSkew = 20.0;
@@ -115,20 +115,22 @@ public class YCSBBenchmark extends BenchmarkModule {
 
             IndexSession readIdx = null, rwIdx = null;
 
-            try {
-              readIdx = this.makeHSReadClient().openIndexSession(workConf.getDBName(), "USERTABLE", "PRIMARY", 
-                  new String[] { "YCSB_KEY", "FIELD1", "FIELD2", "FIELD3", "FIELD4", "FIELD5",
-                    "FIELD6", "FIELD7", "FIELD8", "FIELD9", "FIELD10" });
-            } catch (Exception ex) {
-              LOG.warn("fixme", ex);
-            }
+            if (useHS) {
+              try {
+                readIdx = this.makeHSReadClient().openIndexSession(workConf.getDBName(), "USERTABLE", "PRIMARY", 
+                    new String[] { "YCSB_KEY", "FIELD1", "FIELD2", "FIELD3", "FIELD4", "FIELD5",
+                      "FIELD6", "FIELD7", "FIELD8", "FIELD9", "FIELD10" });
+              } catch (Exception ex) {
+                LOG.warn("fixme", ex);
+              }
 
-            try {
-              rwIdx = this.makeHSReadClient().openIndexSession(workConf.getDBName(), "USERTABLE", "PRIMARY", 
-                  new String[] { "YCSB_KEY", "FIELD1", "FIELD2", "FIELD3", "FIELD4", "FIELD5",
-                    "FIELD6", "FIELD7", "FIELD8", "FIELD9", "FIELD10" });
-            } catch (Exception ex) {
-              LOG.warn("fixme", ex);
+              try {
+                rwIdx = this.makeHSReadWriteClient().openIndexSession(workConf.getDBName(), "USERTABLE", "PRIMARY", 
+                    new String[] { "YCSB_KEY", "FIELD1", "FIELD2", "FIELD3", "FIELD4", "FIELD5",
+                      "FIELD6", "FIELD7", "FIELD8", "FIELD9", "FIELD10" });
+              } catch (Exception ex) {
+                LOG.warn("fixme", ex);
+              }
             }
 
             for (int i = 0; i < workConf.getTerminals(); ++i) {
