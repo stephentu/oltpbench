@@ -37,20 +37,26 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import net.spy.memcached.*;
+import net.rubyeye.xmemcached.XMemcachedClientBuilder;
+import net.rubyeye.xmemcached.command.BinaryCommandFactory;
+import net.spy.memcached.ConnectionFactoryBuilder;
+import net.spy.memcached.MemcachedClient;
 
 import org.apache.log4j.Logger;
 
+import com.google.code.hs4j.HSClient;
+import com.google.code.hs4j.HSClientBuilder;
+import com.google.code.hs4j.impl.HSClientBuilderImpl;
+import com.google.code.hs4j.network.core.impl.StandardSocketOption;
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.catalog.Catalog;
 import com.oltpbenchmark.catalog.Table;
+import com.oltpbenchmark.memcached.MemcachedClientIface;
+import com.oltpbenchmark.memcached.SpyMemcachedClientImpl;
+import com.oltpbenchmark.memcached.XMemcachedClientImpl;
 import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.util.ClassUtil;
 import com.oltpbenchmark.util.ScriptRunner;
-
-import com.google.code.hs4j.*;
-import com.google.code.hs4j.impl.*;
-import com.google.code.hs4j.network.core.impl.*;
 
 /**
  * Base class for all benchmark implementations
@@ -85,7 +91,7 @@ public abstract class BenchmarkModule {
      */
     private Connection last_connection;
     
-    private List<MemcachedClient> mcclients = new ArrayList<MemcachedClient>();
+    private List<MemcachedClientIface> mcclients = new ArrayList<MemcachedClientIface>();
     
     /**
      * A single Random object that should be re-used by all a benchmark's components
@@ -137,21 +143,36 @@ public abstract class BenchmarkModule {
     private static final int NMaxMCClient = 300;
     private static int NCtr = 0;
     
-    protected final MemcachedClient makeMCClient() throws IOException {
-        // no MC specified, so don't bother connecting
-        if (workConf.getMCHostname() == null && workConf.getMCPort() == -1) return null;
+    private static final boolean UseXMemC = true;
+    
+    private final MemcachedClientIface newMCClient() throws IOException {
         String hostname = workConf.getMCHostname() == null ? "127.0.0.1" : workConf.getMCHostname();
         int port = workConf.getMCPort() == -1 ? 11211 : workConf.getMCPort();
+        if (UseXMemC) {
+            XMemcachedClientBuilder builder = new XMemcachedClientBuilder(
+                Collections.singletonList(new InetSocketAddress(hostname, port)));
+            builder.setConnectionPoolSize(1); // XXX: configure
+            builder.setCommandFactory(new BinaryCommandFactory());
+            builder.setConnectTimeout(60 * 60 * 60 * 1000);
+            return new XMemcachedClientImpl(builder.build());
+        } else {
+            ConnectionFactoryBuilder b = new ConnectionFactoryBuilder();
+            b.setOpTimeout(60 * 60 * 60 * 1000)
+             .setProtocol(ConnectionFactoryBuilder.Protocol.BINARY);
+            MemcachedClient c = new MemcachedClient(
+                b.build(), 
+                Collections.singletonList(new InetSocketAddress(hostname, port)));
+            return new SpyMemcachedClientImpl(c);
+        }
+    }
+    
+    protected final MemcachedClientIface makeMCClient() throws IOException {
+        // no MC specified, so don't bother connecting
+        if (workConf.getMCHostname() == null && workConf.getMCPort() == -1) return null;
         synchronized (this) {
-          if (this.mcclients.size() == NMaxMCClient) {
+          if (this.mcclients.size() == NMaxMCClient)
             return this.mcclients.get(NCtr++ % NMaxMCClient);
-          }
-          ConnectionFactoryBuilder b = new ConnectionFactoryBuilder();
-          b.setOpTimeout(60 * 60 * 60 * 1000)
-           .setProtocol(ConnectionFactoryBuilder.Protocol.BINARY);
-          MemcachedClient c = new MemcachedClient(
-              b.build(), 
-              Collections.singletonList(new InetSocketAddress(hostname, port)));
+          MemcachedClientIface c = newMCClient();
           this.mcclients.add(c);
           return c;
         }
@@ -196,7 +217,7 @@ public abstract class BenchmarkModule {
     }
 
     public final void shutdown() {
-      for (MemcachedClient c : mcclients) {
+      for (MemcachedClientIface c : mcclients) {
         c.shutdown();
       }
       mcclients.clear();

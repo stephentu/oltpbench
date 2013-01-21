@@ -14,6 +14,7 @@ import com.oltpbenchmark.api.Procedure;
 import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.benchmarks.ycsb.YCSBBenchmark;
 import com.oltpbenchmark.benchmarks.ycsb.YCSBConstants;
+import com.oltpbenchmark.memcached.MemcachedClientIface;
 
 import com.google.code.hs4j.IndexSession;
 
@@ -25,7 +26,7 @@ public class ReadRecord extends Procedure{
     private static final Logger LOG = Logger.getLogger(ReadRecord.class);
     
 	//FIXME: The value in ysqb is a byteiterator
-    public void run(Connection conn, MemcachedClient mcclient, IndexSession userTable,
+    public void run(Connection conn, MemcachedClientIface mcclient, IndexSession userTable,
                     boolean useHS, int keyname, Map<Integer, String> results) throws SQLException {
         
         if (mcclient != null) {

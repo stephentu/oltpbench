@@ -26,13 +26,12 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Random;
 
-import net.spy.memcached.MemcachedClient;
-
 import com.oltpbenchmark.api.Procedure;
 import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.benchmarks.wikipedia.WikipediaConstants;
 import com.oltpbenchmark.benchmarks.wikipedia.util.Article;
 import com.oltpbenchmark.distributions.ZipFianDistribution;
+import com.oltpbenchmark.memcached.MemcachedClientIface;
 
 public class GetPageAnonymous extends Procedure {
 	
@@ -97,7 +96,7 @@ public class GetPageAnonymous extends Procedure {
     // RUN
     // -----------------------------------------------------------------
 	
-	public Article run(Connection conn, MemcachedClient mcclient,
+	public Article run(Connection conn, MemcachedClientIface mcclient,
 	        boolean forSelect, String userIp,
 			int pageNamespace, String pageTitle) throws UserAbortException, SQLException {		
 	    int param = 1;
@@ -219,7 +218,7 @@ public class GetPageAnonymous extends Procedure {
                 throw new UserAbortException(msg);
             }
             if (mcclient != null) {
-                mcclient.add(mcKeyRevisionTextKey(textId), WikipediaConstants.MC_KEY_TIMEOUT, rs.getString(1));
+                mcclient.set(mcKeyRevisionTextKey(textId), WikipediaConstants.MC_KEY_TIMEOUT, rs.getString(1));
             }
         }
 

@@ -14,6 +14,7 @@ import com.oltpbenchmark.api.Procedure;
 import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.benchmarks.ycsb.YCSBBenchmark;
 import com.oltpbenchmark.benchmarks.ycsb.YCSBConstants;
+import com.oltpbenchmark.memcached.MemcachedClientIface;
 
 import com.google.code.hs4j.FindOperator;
 import com.google.code.hs4j.IndexSession;
@@ -28,7 +29,7 @@ public class UpdateRecord extends Procedure {
         "FIELD6=?,FIELD7=?,FIELD8=?,FIELD9=?,FIELD10=? WHERE YCSB_KEY=?"
     );
     
-    public void run(Connection conn, MemcachedClient mcclient, IndexSession userTable,
+    public void run(Connection conn, MemcachedClientIface mcclient, IndexSession userTable,
                     boolean useHS, int keyname, Map<Integer,String> vals) throws SQLException {
         if (useHS) {
             try {

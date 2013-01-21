@@ -35,8 +35,6 @@ public class YCSBWorker extends Worker {
 
     private final Map<Integer, String> m = new HashMap<Integer, String>();
 
-
-    
     public YCSBWorker(int id, BenchmarkModule benchmarkModule, int init_record_count, 
         double readUpdateHotAccessSkew, 
         double readUpdateHotDataSkew,

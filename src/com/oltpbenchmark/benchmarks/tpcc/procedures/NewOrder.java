@@ -23,6 +23,7 @@ import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCUtil;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCWorker;
 import com.oltpbenchmark.benchmarks.tpcc.jTPCCConfig;
+import com.oltpbenchmark.memcached.MemcachedClientIface;
 
 public class NewOrder extends Procedure {
     
@@ -173,7 +174,7 @@ public class NewOrder extends Procedure {
     }
   }
     
-  public ResultSet run(Connection conn, MemcachedClient mcclient, Random gen,
+  public ResultSet run(Connection conn, MemcachedClientIface mcclient, Random gen,
       int terminalWarehouseID, int numWarehouses,
       int terminalDistrictLowerID, int terminalDistrictUpperID,
       TPCCWorker w) throws SQLException {
@@ -253,7 +254,7 @@ public class NewOrder extends Procedure {
 	
 	private void newOrderTransaction(int w_id, int d_id, int c_id,
 			int o_ol_cnt, int o_all_local, int[] itemIDs,
-			int[] supplierWarehouseIDs, int[] orderQuantities, Connection conn, MemcachedClient mcclient, TPCCWorker w)
+			int[] supplierWarehouseIDs, int[] orderQuantities, Connection conn, MemcachedClientIface mcclient, TPCCWorker w)
 			throws SQLException {
 		float c_discount = 0, w_tax = 0, d_tax = 0, i_price = 0;
 		int d_next_o_id, o_id = -1, s_quantity;

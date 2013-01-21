@@ -30,6 +30,7 @@ import net.spy.memcached.MemcachedClient;
 import com.oltpbenchmark.api.Procedure;
 import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.benchmarks.wikipedia.WikipediaConstants;
+import com.oltpbenchmark.memcached.MemcachedClientIface;
 import com.oltpbenchmark.util.TimeUtil;
 
 public class UpdatePage extends Procedure {
@@ -134,7 +135,7 @@ public class UpdatePage extends Procedure {
     // RUN
     // -----------------------------------------------------------------
 	
-	public void run(Connection conn, MemcachedClient mcclient,
+	public void run(Connection conn, MemcachedClientIface mcclient,
 	                                 int textId, int pageId,
 	                                 String pageTitle, String pageText, int pageNamespace,
 	                                 int userId, String userIp, String userText,
@@ -290,7 +291,7 @@ public class UpdatePage extends Procedure {
 	                rs.close();
 	                if (mcclient != null) {
 	                    // XXX: see note in GetPageAuthenticated
-	                    mcclient.add(mcUserTableKey(userId), WikipediaConstants.MC_KEY_TIMEOUT, "0" + username);
+	                    mcclient.set(mcUserTableKey(userId), WikipediaConstants.MC_KEY_TIMEOUT, "0" + username);
 	                }
 	            }
 			} // FOR

@@ -31,6 +31,7 @@ import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.api.Procedure.UserAbortException;
 import com.oltpbenchmark.benchmarks.wikipedia.WikipediaConstants;
 import com.oltpbenchmark.benchmarks.wikipedia.util.Article;
+import com.oltpbenchmark.memcached.MemcachedClientIface;
 
 public class GetPageAuthenticated extends Procedure {
 	
@@ -85,7 +86,7 @@ public class GetPageAuthenticated extends Procedure {
     // RUN
     // -----------------------------------------------------------------
 	
-    public Article run(Connection conn, MemcachedClient mcclient, boolean forSelect, String userIp, int userId, int nameSpace, String pageTitle) throws SQLException {
+    public Article run(Connection conn, MemcachedClientIface mcclient, boolean forSelect, String userIp, int userId, int nameSpace, String pageTitle) throws SQLException {
         // =======================================================
         // LOADING BASIC DATA: txn1
         // =======================================================
@@ -141,7 +142,7 @@ public class GetPageAuthenticated extends Procedure {
                 // memcache value, but since the default transcoder uses java serialization
                 // for complex type (eg arrays) we just don't store it to avoid a perf
                 // penalty (which could be optimized away if we cared)
-                mcclient.add(mcUserTableKey(userId), WikipediaConstants.MC_KEY_TIMEOUT, "1" + userText);
+                mcclient.set(mcUserTableKey(userId), WikipediaConstants.MC_KEY_TIMEOUT, "1" + userText);
             }
         }
 
@@ -210,7 +211,7 @@ public class GetPageAuthenticated extends Procedure {
                 throw new UserAbortException(msg);
             }
             if (mcclient != null) {
-                mcclient.add(mcKeyRevisionTextKey(textId), WikipediaConstants.MC_KEY_TIMEOUT, rs.getString(1));
+                mcclient.set(mcKeyRevisionTextKey(textId), WikipediaConstants.MC_KEY_TIMEOUT, rs.getString(1));
             }
         }
         

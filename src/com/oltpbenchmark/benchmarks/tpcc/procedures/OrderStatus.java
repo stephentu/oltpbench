@@ -23,6 +23,7 @@ import com.oltpbenchmark.benchmarks.tpcc.TPCCUtil;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCWorker;
 import com.oltpbenchmark.benchmarks.tpcc.jTPCCConfig;
 import com.oltpbenchmark.benchmarks.tpcc.pojo.Customer;
+import com.oltpbenchmark.memcached.MemcachedClientIface;
 
 public class OrderStatus extends Procedure {
 
@@ -151,7 +152,7 @@ public class OrderStatus extends Procedure {
     }
   }
 
-	 public ResultSet run(Connection conn, MemcachedClient mcclient, Random gen,
+	 public ResultSet run(Connection conn, MemcachedClientIface mcclient, Random gen,
 				int terminalWarehouseID, int numWarehouses,
 				int terminalDistrictLowerID, int terminalDistrictUpperID,
 				TPCCWorker w) throws SQLException{
@@ -194,7 +195,7 @@ public class OrderStatus extends Procedure {
 	 }
 	
 	// attention duplicated code across trans... ok for now to maintain separate prepared statements
-			public Customer getCustomerById(int c_w_id, int c_d_id, int c_id, Connection conn, MemcachedClient mcclient)
+			public Customer getCustomerById(int c_w_id, int c_d_id, int c_id, Connection conn, MemcachedClientIface mcclient)
 					throws SQLException {
 
         String mckey = null;
@@ -230,7 +231,7 @@ public class OrderStatus extends Procedure {
 			}
 	
 			private void orderStatusTransaction(int w_id, int d_id, int c_id,
-					String c_last, boolean c_by_name, Connection conn, MemcachedClient mcclient, TPCCWorker w) throws SQLException {
+					String c_last, boolean c_by_name, Connection conn, MemcachedClientIface mcclient, TPCCWorker w) throws SQLException {
 				int o_id = -1, o_carrier_id = -1;
 				Timestamp entdate = null;
 				ArrayList<String> orderLines = new ArrayList<String>();
@@ -407,7 +408,7 @@ public class OrderStatus extends Procedure {
 			}
 			
 			//attention this code is repeated in other transacitons... ok for now to allow for separate statements.
-			public Customer getCustomerByName(int c_w_id, int c_d_id, String c_last, MemcachedClient mcclient)
+			public Customer getCustomerByName(int c_w_id, int c_d_id, String c_last, MemcachedClientIface mcclient)
 					throws SQLException {
 
         String mckey = null;

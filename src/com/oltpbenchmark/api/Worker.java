@@ -19,6 +19,7 @@ import com.oltpbenchmark.Phase;
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.Procedure.UserAbortException;
 import com.oltpbenchmark.catalog.Catalog;
+import com.oltpbenchmark.memcached.MemcachedClientIface;
 import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.types.State;
 import com.oltpbenchmark.types.TransactionStatus;
@@ -36,7 +37,7 @@ public abstract class Worker implements Runnable {
 	private final int id;
 	private final BenchmarkModule benchmarkModule;
 	protected final Connection conn;
-	protected MemcachedClient mcclient;
+	protected MemcachedClientIface mcclient;
   protected HSClient hsReadClient;
   protected HSClient hsReadWriteClient;
 	protected final WorkloadConfiguration wrkld;
@@ -138,7 +139,7 @@ public abstract class Worker implements Runnable {
 	    return (this.conn);
 	}
 
-  public final MemcachedClient getMCClient() {
+  public final MemcachedClientIface getMCClient() {
       return this.mcclient;
   }
 

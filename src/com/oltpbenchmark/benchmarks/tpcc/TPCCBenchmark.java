@@ -28,21 +28,22 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
-
-import org.apache.log4j.Logger;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.apache.commons.configuration.XMLConfiguration;
-
-import net.spy.memcached.MemcachedClient;
+import org.apache.log4j.Logger;
 
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.Worker;
+import com.oltpbenchmark.benchmarks.tpcc.pojo.Customer;
 import com.oltpbenchmark.benchmarks.tpcc.procedures.NewOrder;
 import com.oltpbenchmark.benchmarks.tpcc.procedures.OrderStatus;
-import com.oltpbenchmark.benchmarks.tpcc.pojo.Customer;
+import com.oltpbenchmark.memcached.MemcachedClientIface;
 import com.oltpbenchmark.util.SimpleSystemPrinter;
 
 
@@ -88,8 +89,8 @@ public class TPCCBenchmark extends BenchmarkModule {
 
   private static abstract class WarmupRunnable implements Runnable {
     protected final Connection conn;
-    protected final MemcachedClient mcclient;
-    public WarmupRunnable(Connection conn, MemcachedClient mcclient) {
+    protected final MemcachedClientIface mcclient;
+    public WarmupRunnable(Connection conn, MemcachedClientIface mcclient) {
       this.conn = conn;
       this.mcclient = mcclient;
     }
@@ -114,7 +115,7 @@ public class TPCCBenchmark extends BenchmarkModule {
   }
 
   private static class ItemByIdWarmup extends WarmupRunnable {
-    public ItemByIdWarmup(Connection conn, MemcachedClient mcclient) {
+    public ItemByIdWarmup(Connection conn, MemcachedClientIface mcclient) {
       super(conn, mcclient);
     }
     protected void doWork(Statement stmt) throws SQLException {
@@ -134,7 +135,7 @@ public class TPCCBenchmark extends BenchmarkModule {
   }
 
   private static class CustWarehouseJoinWarmup extends WarmupRunnable {
-    public CustWarehouseJoinWarmup(Connection conn, MemcachedClient mcclient) {
+    public CustWarehouseJoinWarmup(Connection conn, MemcachedClientIface mcclient) {
       super(conn, mcclient);
     }
     protected void doWork(Statement stmt) throws SQLException {
@@ -158,7 +159,7 @@ public class TPCCBenchmark extends BenchmarkModule {
   }
 
   private static class NewestOrderWarmup extends WarmupRunnable {
-    public NewestOrderWarmup(Connection conn, MemcachedClient mcclient) {
+    public NewestOrderWarmup(Connection conn, MemcachedClientIface mcclient) {
       super(conn, mcclient);
     }
     protected void doWork(Statement stmt) throws SQLException {
@@ -182,7 +183,7 @@ public class TPCCBenchmark extends BenchmarkModule {
   }
 
   private static class CustByIdWarmup extends WarmupRunnable {
-    public CustByIdWarmup(Connection conn, MemcachedClient mcclient) {
+    public CustByIdWarmup(Connection conn, MemcachedClientIface mcclient) {
       super(conn, mcclient);
     }
     protected void doWork(Statement stmt) throws SQLException {
@@ -204,7 +205,7 @@ public class TPCCBenchmark extends BenchmarkModule {
   }
 
   private static class CustByNameWarmup extends WarmupRunnable {
-    public CustByNameWarmup(Connection conn, MemcachedClient mcclient) {
+    public CustByNameWarmup(Connection conn, MemcachedClientIface mcclient) {
       super(conn, mcclient);
     }
     protected void doWork(Statement stmt) throws SQLException {
