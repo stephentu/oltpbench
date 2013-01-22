@@ -1,6 +1,7 @@
 package com.oltpbenchmark.memcached;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.apache.log4j.Logger;
@@ -64,6 +65,11 @@ public class XMemcachedClientImpl implements MemcachedClientIface {
         } catch (MemcachedException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    @Override
+    public void waitForQueues(long timeout, TimeUnit u) {
+        // no such op
     }
 
 }

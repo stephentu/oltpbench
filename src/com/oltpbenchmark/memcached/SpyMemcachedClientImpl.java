@@ -1,5 +1,7 @@
 package com.oltpbenchmark.memcached;
 
+import java.util.concurrent.TimeUnit;
+
 import net.spy.memcached.MemcachedClient;
 
 public class SpyMemcachedClientImpl implements MemcachedClientIface {
@@ -28,5 +30,10 @@ public class SpyMemcachedClientImpl implements MemcachedClientIface {
     @Override
     public void delete(String key) {
         client.delete(key);
+    }
+
+    @Override
+    public void waitForQueues(long timeout, TimeUnit u) {
+        client.waitForQueues(timeout, u);
     }
 }

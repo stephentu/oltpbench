@@ -175,6 +175,10 @@ public class YCSBBenchmark extends BenchmarkModule {
                 } catch (InterruptedException e) {
                     LOG.warn(e);
                 }
+                for (int i = 0; i < workers.size(); i++) {
+                    final YCSBWorker thisW = (YCSBWorker) workers.get(i);
+                    thisW.getMCClient().waitForQueues(Long.MAX_VALUE, TimeUnit.SECONDS);
+                }
             }
 
             metaConn.close();
