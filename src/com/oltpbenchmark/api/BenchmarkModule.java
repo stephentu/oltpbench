@@ -142,6 +142,9 @@ public abstract class BenchmarkModule {
 
     private static final int NMaxMCClient = 300;
     private static final boolean UseXMemC = false;
+    
+    //private static final int NMaxMCClient = 1;
+    //private static final boolean UseXMemC = true;
 
     private static int NCtr = 0;
     
