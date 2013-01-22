@@ -9,15 +9,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import net.minidev.json.JSONArray;
-import net.minidev.json.JSONStyle;
 import net.minidev.json.JSONValue;
 
 import org.apache.commons.configuration.XMLConfiguration;
-
 import org.apache.log4j.Logger;
 
+import com.google.code.hs4j.IndexSession;
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
@@ -25,10 +27,6 @@ import com.oltpbenchmark.api.Worker;
 import com.oltpbenchmark.benchmarks.ycsb.procedures.InsertRecord;
 import com.oltpbenchmark.catalog.Table;
 import com.oltpbenchmark.util.SQLUtil;
-
-import com.google.code.hs4j.*;
-import com.google.code.hs4j.impl.*;
-import com.google.code.hs4j.network.core.impl.*;
 
 public class YCSBBenchmark extends BenchmarkModule {
     private static final Logger LOG = Logger.getLogger(YCSBBenchmark.class);
@@ -145,12 +143,37 @@ public class YCSBBenchmark extends BenchmarkModule {
             } // FOR
 
             if (memcachedWarmup > 0) {
+                int nkeys = (int)(((double)init_record_count) * ((double)memcachedWarmup)/100.0);
+                int nkeyspertask = nkeys / workers.size();
+                List<Runnable> tasks = new ArrayList<Runnable>();
                 YCSBWorker w = (YCSBWorker) workers.get(0);
-                Map<Integer, String> rec = w.readRecord(0); 
-                for (int i = 0; i < (int)(((double)init_record_count) * ((double)memcachedWarmup)/100.0); i++) {
-                    w.putInMC(i, rec);
-                    //if (((i+1) % 10000) == 0)
-                    //  System.out.println("i elems: " + (i+1));
+                final Map<Integer, String> rec = w.readRecord(0); 
+                for (int i = 0; i < workers.size(); i++) {
+                    final YCSBWorker thisW = (YCSBWorker) workers.get(i);
+                    final int begin = i * nkeyspertask;
+                    int end0;
+                    if (i == workers.size() - 1)
+                        end0 = nkeys;
+                    else
+                        end0 = (i + 1) * nkeyspertask;
+                    final int end = end0;
+                    Runnable r = new Runnable() {
+                        @Override
+                        public void run() {
+                            for (int k = begin; k < end; k++) 
+                                thisW.putInMC(k, rec);
+                        }
+                    };
+                    tasks.add(r);
+                }
+                ExecutorService pool = Executors.newCachedThreadPool();
+                for (Runnable r : tasks)
+                    pool.submit(r);
+                pool.shutdown();
+                try {
+                    pool.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    LOG.warn(e);
                 }
             }
 
