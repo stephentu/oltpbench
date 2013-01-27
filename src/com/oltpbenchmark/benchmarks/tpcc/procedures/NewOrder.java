@@ -286,6 +286,9 @@ public class NewOrder extends Procedure {
 
             ResultSet rs = null;
             if (cwEntry == null) {
+                // XXX: this query should be broken up into separate selects
+                // so we avoid potential deadlocks
+                
                 stmtGetCustWhse.setInt(1, w_id);
                 stmtGetCustWhse.setInt(2, w_id);
                 stmtGetCustWhse.setInt(3, d_id);

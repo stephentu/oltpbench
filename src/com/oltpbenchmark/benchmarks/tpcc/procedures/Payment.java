@@ -240,12 +240,83 @@ public class Payment extends Procedure {
 			String d_street_1 = null, d_street_2 = null, d_city = null, 
 			       d_state = null, d_zip = null, d_name = null;
 
-		
+	        ResultSet rs = null;
+	        int result;
+	        
+	        // fetch and update cust data first, to avoid deadlock with
+	        // NewOrder's customer/warehouse join query
+	        // XXX: this is very dependent on how mysql executes the join query
+	        // (it so happens that in our exps, mysql looks up the customer data first,
+	        // and then joins with warehouse)
+	        
+			Customer c;
+			if (c_by_name) {
+			    assert c_id <= 0;
+			    c = getCustomerByName(c_w_id, c_d_id, c_last, mcclient);
+			} else {
+			    assert c_last == null;
+			    c = getCustomerById(c_w_id, c_d_id, c_id, conn, mcclient);
+			}
+
+			c.c_balance -= h_amount;
+			c.c_ytd_payment += h_amount;
+			c.c_payment_cnt += 1;
+			String c_data = null;
+			if (c.c_credit.equals("BC")) { // bad credit
+
+			    payGetCustCdata.setInt(1, c_w_id);
+			    payGetCustCdata.setInt(2, c_d_id);
+			    payGetCustCdata.setInt(3, c.c_id);
+			    rs = payGetCustCdata.executeQuery();
+			    if (!rs.next())
+			        throw new RuntimeException("C_ID=" + c.c_id + " C_W_ID="
+			                + c_w_id + " C_D_ID=" + c_d_id + " not found!");
+			    c_data = rs.getString("c_data");
+			    rs.close();
+			    rs = null;
+
+			    c_data = c.c_id + " " + c_d_id + " " + c_w_id + " " + d_id + " "
+			            + w_id + " " + h_amount + " | " + c_data;
+			    if (c_data.length() > 500)
+			        c_data = c_data.substring(0, 500);
+
+
+			    payUpdateCustBalCdata.setFloat(1, c.c_balance);
+			    payUpdateCustBalCdata.setFloat(2, c.c_ytd_payment);
+			    payUpdateCustBalCdata.setInt(3, c.c_payment_cnt);
+			    payUpdateCustBalCdata.setString(4, c_data);
+			    payUpdateCustBalCdata.setInt(5, c_w_id);
+			    payUpdateCustBalCdata.setInt(6, c_d_id);
+			    payUpdateCustBalCdata.setInt(7, c.c_id);
+			    result = payUpdateCustBalCdata.executeUpdate();
+
+			    if (result == 0)
+			        throw new RuntimeException(
+			                "Error in PYMNT Txn updating Customer C_ID=" + c.c_id
+			                + " C_W_ID=" + c_w_id + " C_D_ID=" + c_d_id);
+
+			} else { // GoodCredit
+
+
+			    payUpdateCustBal.setFloat(1, c.c_balance);
+			    payUpdateCustBal.setFloat(2, c.c_ytd_payment);
+			    payUpdateCustBal.setFloat(3, c.c_payment_cnt);
+			    payUpdateCustBal.setInt(4, c_w_id);
+			    payUpdateCustBal.setInt(5, c_d_id);
+			    payUpdateCustBal.setInt(6, c.c_id);
+			    result = payUpdateCustBal.executeUpdate();
+
+			    if (result == 0)
+			        throw new RuntimeException("C_ID=" + c.c_id + " C_W_ID="
+			                + c_w_id + " C_D_ID=" + c_d_id + " not found!");
+
+			}
+
 			payUpdateWhse.setFloat(1, h_amount);
 			payUpdateWhse.setInt(2, w_id);
 			// MySQL reports deadlocks due to lock upgrades:
 			// t1: read w_id = x; t2: update w_id = x; t1 update w_id = x
-			int result = payUpdateWhse.executeUpdate();
+			result = payUpdateWhse.executeUpdate();
 			if (result == 0)
 				throw new RuntimeException("W_ID=" + w_id + " not found!");
 
@@ -264,7 +335,6 @@ public class Payment extends Procedure {
 			    }
 			}
 	
-			ResultSet rs = null;
 			if (whent == null) {
     			payGetWhse.setInt(1, w_id);
     			rs = payGetWhse.executeQuery();
@@ -337,70 +407,6 @@ public class Payment extends Procedure {
                         LOG.warn(e);
                     }
                 }
-			}
-			
-			Customer c;
-			if (c_by_name) {
-				assert c_id <= 0;
-				c = getCustomerByName(c_w_id, c_d_id, c_last, mcclient);
-			} else {
-				assert c_last == null;
-				c = getCustomerById(c_w_id, c_d_id, c_id, conn, mcclient);
-			}
-
-			c.c_balance -= h_amount;
-			c.c_ytd_payment += h_amount;
-			c.c_payment_cnt += 1;
-			String c_data = null;
-			if (c.c_credit.equals("BC")) { // bad credit
-
-	
-				payGetCustCdata.setInt(1, c_w_id);
-				payGetCustCdata.setInt(2, c_d_id);
-				payGetCustCdata.setInt(3, c.c_id);
-				rs = payGetCustCdata.executeQuery();
-				if (!rs.next())
-					throw new RuntimeException("C_ID=" + c.c_id + " C_W_ID="
-							+ c_w_id + " C_D_ID=" + c_d_id + " not found!");
-				c_data = rs.getString("c_data");
-				rs.close();
-				rs = null;
-
-				c_data = c.c_id + " " + c_d_id + " " + c_w_id + " " + d_id + " "
-						+ w_id + " " + h_amount + " | " + c_data;
-				if (c_data.length() > 500)
-					c_data = c_data.substring(0, 500);
-
-
-				payUpdateCustBalCdata.setFloat(1, c.c_balance);
-				payUpdateCustBalCdata.setFloat(2, c.c_ytd_payment);
-				payUpdateCustBalCdata.setInt(3, c.c_payment_cnt);
-				payUpdateCustBalCdata.setString(4, c_data);
-				payUpdateCustBalCdata.setInt(5, c_w_id);
-				payUpdateCustBalCdata.setInt(6, c_d_id);
-				payUpdateCustBalCdata.setInt(7, c.c_id);
-				result = payUpdateCustBalCdata.executeUpdate();
-
-				if (result == 0)
-					throw new RuntimeException(
-							"Error in PYMNT Txn updating Customer C_ID=" + c.c_id
-									+ " C_W_ID=" + c_w_id + " C_D_ID=" + c_d_id);
-
-			} else { // GoodCredit
-
-
-				payUpdateCustBal.setFloat(1, c.c_balance);
-				payUpdateCustBal.setFloat(2, c.c_ytd_payment);
-				payUpdateCustBal.setFloat(3, c.c_payment_cnt);
-				payUpdateCustBal.setInt(4, c_w_id);
-				payUpdateCustBal.setInt(5, c_d_id);
-				payUpdateCustBal.setInt(6, c.c_id);
-				result = payUpdateCustBal.executeUpdate();
-
-				if (result == 0)
-					throw new RuntimeException("C_ID=" + c.c_id + " C_W_ID="
-							+ c_w_id + " C_D_ID=" + c_d_id + " not found!");
-
 			}
 
 			if (w_name.length() > 10)

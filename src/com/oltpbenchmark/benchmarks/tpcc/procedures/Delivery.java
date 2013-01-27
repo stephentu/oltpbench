@@ -65,6 +65,9 @@ public class Delivery extends Procedure {
 		delivSumOrderAmount = this.getPreparedStatement(conn, delivSumOrderAmountSQL);
 		delivUpdateCustBalDelivCnt = this.getPreparedStatement(conn, delivUpdateCustBalDelivCntSQL);
 
+		// skew w_id for delivery
+		terminalWarehouseID = w.getWarehouseId(terminalWarehouseID);
+		
 		deliveryTransaction(terminalWarehouseID,orderCarrierID, conn, w);
 		return null;
     }
