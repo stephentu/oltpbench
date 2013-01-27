@@ -16,7 +16,7 @@ public class Delivery extends Procedure {
 
 	
 	public SQLStmt delivGetOrderIdSQL = new SQLStmt("SELECT no_o_id FROM new_order WHERE no_d_id = ?"
-			+ " AND no_w_id = ? ORDER BY no_o_id ASC LIMIT 1");
+			+ " AND no_w_id = ? ORDER BY no_o_id ASC LIMIT 1 FOR UPDATE");
 	public SQLStmt delivDeleteNewOrderSQL = new SQLStmt("DELETE FROM new_order"
 			+ " WHERE no_o_id = ? AND no_d_id = ?"
 			+ " AND no_w_id = ?");
@@ -180,9 +180,8 @@ public class Delivery extends Procedure {
 			if (result == 0)
 				throw new RuntimeException("C_ID=" + c_id + " C_W_ID=" + w_id
 						+ " C_D_ID=" + d_id + " not found!");
+		  conn.commit();
 		}
-
-		conn.commit();
 
 		//TODO: This part is not used
 		StringBuilder terminalMessage = new StringBuilder();
