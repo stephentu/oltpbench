@@ -38,26 +38,34 @@ public class StockLevel extends Procedure {
 	        int terminalDistrictLowerID, int terminalDistrictUpperID,
 	        TPCCWorker w) throws SQLException {
 
+	    // run this TXN with relaxed isolation level, so that we avoid
+	    // deadlocks with NewOrder
+	    int curIsoLevel = conn.getTransactionIsolation();
+	    conn.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
 
-	    stockGetDistOrderId = this.getPreparedStatement(conn, stockGetDistOrderIdSQL);
-	    stockGetCountStock= this.getPreparedStatement(conn, stockGetCountStockSQL);
-
-	    int threshold = TPCCUtil.randomNumber(10, 20, gen);
-
-	    int districtID;
-	    if (w.getSkewGen() != null) {
-	        int v = w.getSkewGen().nextInt();
-	        terminalWarehouseID = v / jTPCCConfig.configDistPerWhse;
-	        districtID = v % jTPCCConfig.configDistPerWhse;
-
-	        // note: terminal/district are 1-indexed
-	        terminalWarehouseID++; districtID++;
-	    } else {
-	        districtID = TPCCUtil.randomNumber(terminalDistrictLowerID,terminalDistrictUpperID, gen);
+	    try {
+    	    stockGetDistOrderId = this.getPreparedStatement(conn, stockGetDistOrderIdSQL);
+    	    stockGetCountStock= this.getPreparedStatement(conn, stockGetCountStockSQL);
+    
+    	    int threshold = TPCCUtil.randomNumber(10, 20, gen);
+    
+    	    int districtID;
+    	    if (w.getSkewGen() != null) {
+    	        int v = w.getSkewGen().nextInt();
+    	        terminalWarehouseID = v / jTPCCConfig.configDistPerWhse;
+    	        districtID = v % jTPCCConfig.configDistPerWhse;
+    
+    	        // note: terminal/district are 1-indexed
+    	        terminalWarehouseID++; districtID++;
+    	    } else {
+    	        districtID = TPCCUtil.randomNumber(terminalDistrictLowerID,terminalDistrictUpperID, gen);
+    	    }
+    
+    	    stockLevelTransaction(terminalWarehouseID, districtID, threshold,conn,w);
+	    } finally {
+	        conn.setTransactionIsolation(curIsoLevel);
 	    }
-
-	    stockLevelTransaction(terminalWarehouseID, districtID, threshold,conn,w);
-
+	    
 	    return null;
 	}
 	
