@@ -34,7 +34,7 @@ public class Payment extends Procedure {
 	public SQLStmt payGetCustSQL = new SQLStmt("SELECT c_first, c_middle, c_last, c_street_1, c_street_2, "
 			+ "c_city, c_state, c_zip, c_phone, c_credit, c_credit_lim, "
 			+ "c_discount, c_balance, c_ytd_payment, c_payment_cnt, c_since FROM customer WHERE "
-			+ "c_w_id = ? AND c_d_id = ? AND c_id = ?");
+			+ "c_w_id = ? AND c_d_id = ? AND c_id = ? FOR UPDATE");
 	public SQLStmt payGetCustCdataSQL = new SQLStmt("SELECT c_data FROM customer WHERE c_w_id = ? AND c_d_id = ? AND c_id = ?");
 	public SQLStmt payUpdateCustBalCdataSQL = new SQLStmt("UPDATE customer SET c_balance = ?, c_ytd_payment = ?, "
 			+ "c_payment_cnt = ?, c_data = ? "
@@ -46,7 +46,7 @@ public class Payment extends Procedure {
 	public SQLStmt customerByNameSQL = new SQLStmt("SELECT c_first, c_middle, c_id, c_street_1, c_street_2, c_city, "
 			+ "c_state, c_zip, c_phone, c_credit, c_credit_lim, c_discount, "
 			+ "c_balance, c_ytd_payment, c_payment_cnt, c_since FROM customer "
-			+ "WHERE c_w_id = ? AND c_d_id = ? AND c_last = ? ORDER BY c_first");
+			+ "WHERE c_w_id = ? AND c_d_id = ? AND c_last = ? ORDER BY c_first FOR UPDATE");
 	
 	public static String MCKeyWarehouseRO(int w_id) {
 	    return "tpcc:warehouse:w_id:" + w_id;

@@ -121,6 +121,11 @@ public class Delivery extends Procedure {
 								+ " delete failed (not running with SERIALIZABLE isolation?)");
 			}
 
+      conn.commit(); // once we figure out which new_order to remove, 
+                     // we'll run the actual remove logic in a separate
+                     // txn- if this next remove txn fails, then that's an 
+                     // issue, but we currently don't do anything about it
+
 	
 			delivGetCustId.setInt(1, no_o_id);
 			delivGetCustId.setInt(2, d_id);
