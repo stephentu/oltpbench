@@ -43,6 +43,7 @@ import com.oltpbenchmark.api.Worker;
 import com.oltpbenchmark.benchmarks.tpcc.pojo.Customer;
 import com.oltpbenchmark.benchmarks.tpcc.procedures.NewOrder;
 import com.oltpbenchmark.benchmarks.tpcc.procedures.OrderStatus;
+import com.oltpbenchmark.benchmarks.tpcc.procedures.Payment;
 import com.oltpbenchmark.memcached.MemcachedClientIface;
 import com.oltpbenchmark.util.SimpleSystemPrinter;
 
@@ -232,7 +233,55 @@ public class TPCCBenchmark extends BenchmarkModule {
       rs.close();
     }
   }
-
+  
+  private static class WarehouseROWarmup extends WarmupRunnable {
+      public WarehouseROWarmup(Connection conn, MemcachedClientIface mcclient) {
+          super(conn, mcclient);
+      }
+      protected void doWork(Statement stmt) throws SQLException {
+          System.err.println("warming up warehouse RO");
+          ResultSet rs = stmt.executeQuery(
+                  "SELECT w_id, w_name, w_street_1, w_street_2, w_city, w_state, w_zip FROM warehouse"
+                  );
+          while (rs.next()) {
+              Payment.WarehouseReadOnlyEntry ent = new Payment.WarehouseReadOnlyEntry(
+                      rs.getString(2), rs.getString(3), rs.getString(4), 
+                      rs.getString(5), rs.getString(6), rs.getString(7));
+              String mckey = Payment.MCKeyWarehouseRO(rs.getInt(1));
+              try {
+                  mcclient.set(mckey, jTPCCConfig.MC_KEY_TIMEOUT, ent.toJson());
+              } catch (IllegalStateException e) {
+                  LOG.warn(e);
+              }
+          }
+          rs.close();
+      }
+  }
+  
+  private static class DistrictROWarmup extends WarmupRunnable {
+      public DistrictROWarmup(Connection conn, MemcachedClientIface mcclient) {
+          super(conn, mcclient);
+      }
+      protected void doWork(Statement stmt) throws SQLException {
+          System.err.println("warming up district RO");
+          ResultSet rs = stmt.executeQuery(
+                  "SELECT d_w_id, d_id, w_name, w_street_1, w_street_2, w_city, w_state, w_zip FROM warehouse"
+                  );
+          while (rs.next()) {
+              Payment.DistrictReadOnlyEntry ent = new Payment.DistrictReadOnlyEntry(
+                      rs.getString(3), rs.getString(4), rs.getString(5), 
+                      rs.getString(6), rs.getString(7), rs.getString(8));
+              String mckey = Payment.MCKeyDistrictRO(rs.getInt(1), rs.getInt(2));
+              try {
+                  mcclient.set(mckey, jTPCCConfig.MC_KEY_TIMEOUT, ent.toJson());
+              } catch (IllegalStateException e) {
+                  LOG.warn(e);
+              }
+          }
+          rs.close();
+      }
+  }
+  
 	/**
 	 * @param Bool
 	 */
@@ -251,13 +300,15 @@ public class TPCCBenchmark extends BenchmarkModule {
 
     if (((TPCCWorker)workers.get(0)).getMCClient() != null) {
       System.err.println("warming up memcached");
-      if (workers.size() >= 5) {
+      if (workers.size() >= 7) {
         List<WarmupRunnable> runners = new ArrayList<WarmupRunnable>();
         runners.add(new ItemByIdWarmup(((TPCCWorker)workers.get(0)).getConnection(), ((TPCCWorker)workers.get(0)).getMCClient()));
         runners.add(new CustWarehouseJoinWarmup(((TPCCWorker)workers.get(1)).getConnection(), ((TPCCWorker)workers.get(1)).getMCClient()));
-        runners.add(new NewestOrderWarmup(((TPCCWorker)workers.get(2)).getConnection(), ((TPCCWorker)workers.get(2)).getMCClient()));
+        //runners.add(new NewestOrderWarmup(((TPCCWorker)workers.get(2)).getConnection(), ((TPCCWorker)workers.get(2)).getMCClient()));
         runners.add(new CustByIdWarmup(((TPCCWorker)workers.get(3)).getConnection(), ((TPCCWorker)workers.get(3)).getMCClient()));
         runners.add(new CustByNameWarmup(((TPCCWorker)workers.get(4)).getConnection(), ((TPCCWorker)workers.get(4)).getMCClient()));
+        runners.add(new WarehouseROWarmup(((TPCCWorker)workers.get(5)).getConnection(), ((TPCCWorker)workers.get(5)).getMCClient()));
+        runners.add(new DistrictROWarmup(((TPCCWorker)workers.get(6)).getConnection(), ((TPCCWorker)workers.get(6)).getMCClient()));
 
         ExecutorService exec = Executors.newCachedThreadPool();
         List<Future<?>> futures = new ArrayList<Future<?>>();

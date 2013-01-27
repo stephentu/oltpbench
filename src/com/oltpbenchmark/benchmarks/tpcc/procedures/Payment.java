@@ -8,6 +8,9 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Random;
 
+import net.minidev.json.JSONArray;
+import net.minidev.json.JSONValue;
+
 import org.apache.log4j.Logger;
 
 import com.oltpbenchmark.api.Procedure;
@@ -16,6 +19,7 @@ import com.oltpbenchmark.benchmarks.tpcc.TPCCUtil;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCWorker;
 import com.oltpbenchmark.benchmarks.tpcc.jTPCCConfig;
 import com.oltpbenchmark.benchmarks.tpcc.pojo.Customer;
+import com.oltpbenchmark.memcached.MemcachedClientIface;
 
 public class Payment extends Procedure {
 
@@ -44,7 +48,102 @@ public class Payment extends Procedure {
 			+ "c_balance, c_ytd_payment, c_payment_cnt, c_since FROM customer "
 			+ "WHERE c_w_id = ? AND c_d_id = ? AND c_last = ? ORDER BY c_first");
 	
+	public static String MCKeyWarehouseRO(int w_id) {
+	    return "tpcc:warehouse:w_id:" + w_id;
+	}
 	
+	public static String MCKeyDistrictRO(int w_id, int d_id) {
+	    return "tpcc:district:w_id:" + w_id + ":d_id:" + d_id;
+	}
+	
+	public static final class WarehouseReadOnlyEntry {
+	    
+//	    public int w_id; // PRIMARY KEY
+//	    public float w_ytd;
+//	    public float w_tax;
+	    
+	    public final String w_name;
+	    public final String w_street_1;
+	    public final String w_street_2;
+	    public final String w_city;
+	    public final String w_state;
+	    public final String w_zip;
+	    
+        public WarehouseReadOnlyEntry(String w_name, String w_street_1, String w_street_2, String w_city, String w_state, String w_zip) {
+            this.w_name = w_name;
+            this.w_street_1 = w_street_1;
+            this.w_street_2 = w_street_2;
+            this.w_city = w_city;
+            this.w_state = w_state;
+            this.w_zip = w_zip;
+        }
+	    
+        public String toJson() {
+            JSONArray a = new JSONArray();
+            a.add(w_name);
+            a.add(w_street_1);
+            a.add(w_street_2);
+            a.add(w_city);
+            a.add(w_state);
+            a.add(w_zip);
+            return a.toJSONString();
+        }
+	    
+	    public static WarehouseReadOnlyEntry FromJson(String s) {
+            JSONArray a = (JSONArray) JSONValue.parse(s);
+            if (a == null)
+                throw new RuntimeException("bad json: " + s);
+            return new WarehouseReadOnlyEntry(
+                    (String)a.get(0), (String)a.get(1), (String)a.get(2),
+                    (String)a.get(3), (String)a.get(4), (String)a.get(5));
+	    }
+	}
+	
+	public static final class DistrictReadOnlyEntry {
+	    
+//	    public int d_id;
+//	    public int d_w_id;
+//	    public int d_next_o_id;
+//	    public float d_ytd;
+//	    public float d_tax;
+	    
+	    public final String d_name;
+	    public final String d_street_1;
+	    public final String d_street_2;
+	    public final String d_city;
+	    public final String d_state;
+	    public final String d_zip;
+	    
+        public DistrictReadOnlyEntry(String d_name, String d_street_1, String d_street_2, String d_city, String d_state, String d_zip) {
+            this.d_name = d_name;
+            this.d_street_1 = d_street_1;
+            this.d_street_2 = d_street_2;
+            this.d_city = d_city;
+            this.d_state = d_state;
+            this.d_zip = d_zip;
+        }
+        
+        public String toJson() {
+            JSONArray a = new JSONArray();
+            a.add(d_name);
+            a.add(d_street_1);
+            a.add(d_street_2);
+            a.add(d_city);
+            a.add(d_state);
+            a.add(d_zip);
+            return a.toJSONString();
+        }
+        
+        public static DistrictReadOnlyEntry FromJson(String s) {
+            JSONArray a = (JSONArray) JSONValue.parse(s);
+            if (a == null)
+                throw new RuntimeException("bad json: " + s);
+            return new DistrictReadOnlyEntry(
+                    (String)a.get(0), (String)a.get(1), (String)a.get(2), 
+                    (String)a.get(3), (String)a.get(4), (String)a.get(5));
+        }
+
+	}
 	
 	// Payment Txn
 	private PreparedStatement payUpdateWhse = null;
@@ -58,7 +157,7 @@ public class Payment extends Procedure {
 	private PreparedStatement payInsertHist = null;
 	private PreparedStatement customerByName = null;
 	
-  public ResultSet run(Connection conn, Random gen,
+  public ResultSet run(Connection conn, MemcachedClientIface mcclient, Random gen,
       int terminalWarehouseID, int numWarehouses,
       int terminalDistrictLowerID, int terminalDistrictUpperID,
       TPCCWorker w) throws SQLException {
@@ -96,7 +195,7 @@ public class Payment extends Procedure {
      int x = TPCCUtil.randomNumber(1, 100, gen);
      int customerDistrictID;
      int customerWarehouseID;
-     if (x <= 85) {
+     if (w.getSkewGen() != null || x <= 85) {
        customerDistrictID = districtID;
        customerWarehouseID = terminalWarehouseID;
      } else {
@@ -128,16 +227,18 @@ public class Payment extends Procedure {
      paymentTransaction(terminalWarehouseID,
          customerWarehouseID, paymentAmount, districtID,
          customerDistrictID, customerID,
-         customerLastName, customerByName, conn, w);
+         customerLastName, customerByName, conn, mcclient, w);
 
      return null;
    }
 	 
     private void paymentTransaction(int w_id, int c_w_id, float h_amount,
-				int d_id, int c_d_id, int c_id, String c_last, boolean c_by_name, Connection conn, TPCCWorker w)
+				int d_id, int c_d_id, int c_id, String c_last, boolean c_by_name, Connection conn, MemcachedClientIface mcclient, TPCCWorker w)
 				throws SQLException {
-			String w_street_1, w_street_2, w_city, w_state, w_zip, w_name;
-			String d_street_1, d_street_2, d_city, d_state, d_zip, d_name;
+			String w_street_1 = null, w_street_2 = null, w_city = null, 
+			       w_state = null, w_zip = null, w_name = null;
+			String d_street_1 = null, d_street_2 = null, d_city = null, 
+			       d_state = null, d_zip = null, d_name = null;
 
 		
 			payUpdateWhse.setFloat(1, h_amount);
@@ -148,20 +249,45 @@ public class Payment extends Procedure {
 			if (result == 0)
 				throw new RuntimeException("W_ID=" + w_id + " not found!");
 
+			WarehouseReadOnlyEntry whent = null;
+			String mckeyWhent = null;
+			if (mcclient != null) {
+			    Object o = null;
+			    if ((o = mcclient.get((mckeyWhent = MCKeyWarehouseRO(w_id)))) != null) {
+			        whent = WarehouseReadOnlyEntry.FromJson((String)o);
+			        w_street_1 = whent.w_street_1;
+			        w_street_2 = whent.w_street_2;
+			        w_city = whent.w_city;
+			        w_state = whent.w_state;
+			        w_zip = whent.w_zip;
+			        w_name = whent.w_name;
+			    }
+			}
 	
-			payGetWhse.setInt(1, w_id);
-			ResultSet rs = payGetWhse.executeQuery();
-			if (!rs.next())
-				throw new RuntimeException("W_ID=" + w_id + " not found!");
-			w_street_1 = rs.getString("w_street_1");
-			w_street_2 = rs.getString("w_street_2");
-			w_city = rs.getString("w_city");
-			w_state = rs.getString("w_state");
-			w_zip = rs.getString("w_zip");
-			w_name = rs.getString("w_name");
-			rs.close();
-			rs = null;
-
+			ResultSet rs = null;
+			if (whent == null) {
+    			payGetWhse.setInt(1, w_id);
+    			rs = payGetWhse.executeQuery();
+    			if (!rs.next())
+    				throw new RuntimeException("W_ID=" + w_id + " not found!");
+    			w_street_1 = rs.getString("w_street_1");
+    			w_street_2 = rs.getString("w_street_2");
+    			w_city = rs.getString("w_city");
+    			w_state = rs.getString("w_state");
+    			w_zip = rs.getString("w_zip");
+    			w_name = rs.getString("w_name");
+    			rs.close();
+    			rs = null;
+    			
+    			if (mcclient != null) {
+    			    try {
+    			        mcclient.set(mckeyWhent, jTPCCConfig.MC_KEY_TIMEOUT, 
+    			                new WarehouseReadOnlyEntry(w_name, w_street_1, w_street_2, w_city, w_state, w_zip).toJson());
+    			    } catch (IllegalStateException e) {
+    			        LOG.warn(e);
+    			    }
+    			}
+			}
 
 			payUpdateDist.setFloat(1, h_amount);
 			payUpdateDist.setInt(2, w_id);
@@ -171,29 +297,55 @@ public class Payment extends Procedure {
 				throw new RuntimeException("D_ID=" + d_id + " D_W_ID=" + w_id
 						+ " not found!");
 
+			
+			DistrictReadOnlyEntry dsent = null;
+			String mckeyDsent = null;
+			if (mcclient != null) {
+			    Object o = null;
+			    if ((o = mcclient.get((mckeyDsent = MCKeyDistrictRO(w_id, d_id)))) != null) {
+			        dsent = DistrictReadOnlyEntry.FromJson((String)o);
+			        d_street_1 = dsent.d_street_1;
+			        d_street_2 = dsent.d_street_2;
+			        d_city = dsent.d_city;
+			        d_state = dsent.d_state;
+			        d_zip = dsent.d_zip;
+			        d_name = dsent.d_name;
+			    }
+			}
+			
+			if (dsent == null) {
+    			payGetDist.setInt(1, w_id);
+    			payGetDist.setInt(2, d_id);
+    			rs = payGetDist.executeQuery();
+    			if (!rs.next())
+    				throw new RuntimeException("D_ID=" + d_id + " D_W_ID=" + w_id
+    						+ " not found!");
+    			d_street_1 = rs.getString("d_street_1");
+    			d_street_2 = rs.getString("d_street_2");
+    			d_city = rs.getString("d_city");
+    			d_state = rs.getString("d_state");
+    			d_zip = rs.getString("d_zip");
+    			d_name = rs.getString("d_name");
+    			rs.close();
+    			rs = null;
 
-			payGetDist.setInt(1, w_id);
-			payGetDist.setInt(2, d_id);
-			rs = payGetDist.executeQuery();
-			if (!rs.next())
-				throw new RuntimeException("D_ID=" + d_id + " D_W_ID=" + w_id
-						+ " not found!");
-			d_street_1 = rs.getString("d_street_1");
-			d_street_2 = rs.getString("d_street_2");
-			d_city = rs.getString("d_city");
-			d_state = rs.getString("d_state");
-			d_zip = rs.getString("d_zip");
-			d_name = rs.getString("d_name");
-			rs.close();
-			rs = null;
-
+                if (mcclient != null) {
+                    try {
+                        mcclient.set(mckeyDsent, jTPCCConfig.MC_KEY_TIMEOUT, 
+                                new DistrictReadOnlyEntry(d_name, d_street_1, d_street_2, d_city, d_state, d_zip).toJson());
+                    } catch (IllegalStateException e) {
+                        LOG.warn(e);
+                    }
+                }
+			}
+			
 			Customer c;
 			if (c_by_name) {
 				assert c_id <= 0;
-				c = getCustomerByName(c_w_id, c_d_id, c_last);
+				c = getCustomerByName(c_w_id, c_d_id, c_last, mcclient);
 			} else {
 				assert c_last == null;
-				c = getCustomerById(c_w_id, c_d_id, c_id, conn);
+				c = getCustomerById(c_w_id, c_d_id, c_id, conn, mcclient);
 			}
 
 			c.c_balance -= h_amount;
@@ -355,57 +507,91 @@ public class Payment extends Procedure {
 		} 
 	 
 	 	// attention duplicated code across trans... ok for now to maintain separate prepared statements
-		public Customer getCustomerById(int c_w_id, int c_d_id, int c_id, Connection conn)
-				throws SQLException {
-	
-			payGetCust.setInt(1, c_w_id);
-			payGetCust.setInt(2, c_d_id);
-			payGetCust.setInt(3, c_id);
-			ResultSet rs = payGetCust.executeQuery();
-			if (!rs.next()) {
-				throw new RuntimeException("C_ID=" + c_id + " C_D_ID=" + c_d_id
-						+ " C_W_ID=" + c_w_id + " not found!");
-			}
+        public Customer getCustomerById(int c_w_id, int c_d_id, int c_id, Connection conn, MemcachedClientIface mcclient)
+                throws SQLException {
+    
+            String mckey = null;
+            if (mcclient != null) {
+                Object o = null;
+                if ((o = mcclient.get((mckey = OrderStatus.MCKeyCustById(c_w_id, c_d_id, c_id)))) != null) {
+                    return Customer.FromJson((String) o);
+                }
+            }
+    
+            payGetCust.setInt(1, c_w_id);
+            payGetCust.setInt(2, c_d_id);
+            payGetCust.setInt(3, c_id);
+            ResultSet rs = payGetCust.executeQuery();
+            if (!rs.next()) {
+                throw new RuntimeException("C_ID=" + c_id + " C_D_ID=" + c_d_id
+                        + " C_W_ID=" + c_w_id + " not found!");
+            }
+    
+            Customer c = TPCCUtil.newCustomerFromResults(rs);
+            c.c_id = c_id;
+            c.c_last = rs.getString("c_last");
+            rs.close();
+    
+            if (mcclient != null) {
+                try { 
+                    mcclient.set(mckey, jTPCCConfig.MC_KEY_TIMEOUT, c.toJson());
+                } catch (IllegalStateException e) {
+                    LOG.warn("MC queue is full", e);
+                }
+            }
+            return c;
+        }
 
-			Customer c = TPCCUtil.newCustomerFromResults(rs);
-			c.c_id = c_id;
-			c.c_last = rs.getString("c_last");
-			rs.close();
-			return c;
-		}
-		
 		//attention this code is repeated in other transacitons... ok for now to allow for separate statements.
-		public Customer getCustomerByName(int c_w_id, int c_d_id, String c_last)
-				throws SQLException {
-			ArrayList<Customer> customers = new ArrayList<Customer>();
+	    public Customer getCustomerByName(int c_w_id, int c_d_id, String c_last, MemcachedClientIface mcclient)
+	            throws SQLException {
 
-			customerByName.setInt(1, c_w_id);
-			customerByName.setInt(2, c_d_id);
-			customerByName.setString(3, c_last);
-			ResultSet rs = customerByName.executeQuery();
+	        String mckey = null;
+	        if (mcclient != null) {
+	            Object o = null;
+	            if ((o = mcclient.get((mckey = OrderStatus.MCKeyCustByName(c_w_id, c_d_id, c_last)))) != null) {
+	                return Customer.FromJson((String) o);
+	            }
+	        }
 
-			while (rs.next()) {
-				Customer c = TPCCUtil.newCustomerFromResults(rs);
-				c.c_id = rs.getInt("c_id");
-				c.c_last = c_last;
-				customers.add(c);
-			}
-			rs.close();
+	        ArrayList<Customer> customers = new ArrayList<Customer>();
 
-			if (customers.size() == 0) {
-				throw new RuntimeException("C_LAST=" + c_last + " C_D_ID=" + c_d_id
-						+ " C_W_ID=" + c_w_id + " not found!");
-			}
+	        customerByName.setInt(1, c_w_id);
+	        customerByName.setInt(2, c_d_id);
+	        customerByName.setString(3, c_last);
+	        ResultSet rs = customerByName.executeQuery();
 
-			// TPC-C 2.5.2.2: Position n / 2 rounded up to the next integer, but
-			// that
-			// counts starting from 1.
-			int index = customers.size() / 2;
-			if (customers.size() % 2 == 0) {
-				index -= 1;
-			}
-			return customers.get(index);
-		}
+	        while (rs.next()) {
+	            Customer c = TPCCUtil.newCustomerFromResults(rs);
+	            c.c_id = rs.getInt("c_id");
+	            c.c_last = c_last;
+	            customers.add(c);
+	        }
+	        rs.close();
+
+	        if (customers.size() == 0) {
+	            throw new RuntimeException("C_LAST=" + c_last + " C_D_ID=" + c_d_id
+	                    + " C_W_ID=" + c_w_id + " not found!");
+	        }
+
+	        // TPC-C 2.5.2.2: Position n / 2 rounded up to the next integer, but
+	        // that
+	        // counts starting from 1.
+	        int index = customers.size() / 2;
+	        if (customers.size() % 2 == 0) {
+	            index -= 1;
+	        }
+	        Customer ret = customers.get(index);
+
+	        if (mcclient != null) {
+	            try { 
+	                mcclient.set(mckey, jTPCCConfig.MC_KEY_TIMEOUT, ret.toJson());
+	            } catch (IllegalStateException e) {
+	                LOG.warn("MC queue is full", e);
+	            }
+	        }
+	        return ret;
+	    }
 
 		
 }

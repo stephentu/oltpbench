@@ -66,6 +66,12 @@ public class TPCCWorker extends Worker {
   public CustomSkewThreeLevelGenerator getSkewGen() {
       return skewGen;
   }
+  
+    public int getWarehouseId(int dft) {
+        if (skewGen != null)
+            return skewGen.nextInt() / jTPCCConfig.configDistPerWhse;
+        return dft;
+    }
 
 	public TPCCWorker(String terminalName, int terminalWarehouseID,
 			int terminalDistrictLowerID, int terminalDistrictUpperID,
@@ -112,7 +118,7 @@ public class TPCCWorker extends Worker {
                   terminalDistrictLowerID, terminalDistrictUpperID, this);
       } else if (nextTransaction.getProcedureClass().equals(Payment.class)) {
           Payment proc2 = (Payment) this.getProcedure(Payment.class);
-          proc2.run(conn, gen, terminalWarehouseID, numWarehouses,
+          proc2.run(conn, mcclient, gen, terminalWarehouseID, numWarehouses,
                   terminalDistrictLowerID, terminalDistrictUpperID, this);
       } else if (nextTransaction.getProcedureClass().equals(StockLevel.class)) {
           StockLevel proc3 = (StockLevel) this.getProcedure(StockLevel.class);
