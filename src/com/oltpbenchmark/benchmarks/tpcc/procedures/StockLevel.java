@@ -12,6 +12,7 @@ import com.oltpbenchmark.api.Procedure;
 import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCUtil;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCWorker;
+import com.oltpbenchmark.benchmarks.tpcc.jTPCCConfig;
 
 public class StockLevel extends Procedure {
 
@@ -32,23 +33,33 @@ public class StockLevel extends Procedure {
 	private PreparedStatement stockGetDistOrderId = null;
 	private PreparedStatement stockGetCountStock = null;
 	
-	 public ResultSet run(Connection conn, Random gen,
-				int terminalWarehouseID, int numWarehouses,
-				int terminalDistrictLowerID, int terminalDistrictUpperID,
-				TPCCWorker w) throws SQLException {
-		 
-		 
-		stockGetDistOrderId = this.getPreparedStatement(conn, stockGetDistOrderIdSQL);
-		stockGetCountStock= this.getPreparedStatement(conn, stockGetCountStockSQL);
-		 
-		int threshold = TPCCUtil.randomNumber(10, 20, gen);
-	
-		int districtID = TPCCUtil.randomNumber(terminalDistrictLowerID,terminalDistrictUpperID, gen);
-	
-		stockLevelTransaction(terminalWarehouseID, districtID, threshold,conn,w);
-		
-		return null;
-	 }
+	public ResultSet run(Connection conn, Random gen,
+	        int terminalWarehouseID, int numWarehouses,
+	        int terminalDistrictLowerID, int terminalDistrictUpperID,
+	        TPCCWorker w) throws SQLException {
+
+
+	    stockGetDistOrderId = this.getPreparedStatement(conn, stockGetDistOrderIdSQL);
+	    stockGetCountStock= this.getPreparedStatement(conn, stockGetCountStockSQL);
+
+	    int threshold = TPCCUtil.randomNumber(10, 20, gen);
+
+	    int districtID;
+	    if (w.getSkewGen() != null) {
+	        int v = w.getSkewGen().nextInt();
+	        terminalWarehouseID = v / jTPCCConfig.configDistPerWhse;
+	        districtID = v % jTPCCConfig.configDistPerWhse;
+
+	        // note: terminal/district are 1-indexed
+	        terminalWarehouseID++; districtID++;
+	    } else {
+	        districtID = TPCCUtil.randomNumber(terminalDistrictLowerID,terminalDistrictUpperID, gen);
+	    }
+
+	    stockLevelTransaction(terminalWarehouseID, districtID, threshold,conn,w);
+
+	    return null;
+	}
 	
 
 
